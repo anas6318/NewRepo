@@ -1,0 +1,172 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CROWNED design tokens — single source of truth for the visual system.
+   Luxury football archive × premium modern ecommerce.
+   Palette: deep black, warm metallic gold, white, off-white, neutral gray.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* ── Ink (blacks) ─────────────────────────────────────────────────────── */
+  --ink-950: #0b0b0d;
+  --ink-900: #121216;
+  --ink-850: #17171c;
+  --ink-800: #1d1d24;
+  --ink-700: #26262f;
+  --ink-600: #34343f;
+
+  /* ── Paper (whites) ───────────────────────────────────────────────────── */
+  --paper: #f6f4ef;
+  --paper-warm: #efece4;
+  --white: #ffffff;
+
+  /* ── Neutral grays ────────────────────────────────────────────────────── */
+  --gray-100: #e9e8e4;
+  --gray-200: #d8d6d0;
+  --gray-300: #bdbbb4;
+  --gray-400: #9b9992;
+  --gray-500: #7c7a74;
+  --gray-600: #5f5e59;
+  --gray-700: #46453f;
+
+  /* ── Warm metallic gold (accent — used sparingly) ─────────────────────── */
+  --gold-200: #efe3c0;
+  --gold-300: #e3cf9c;
+  --gold-400: #d4b878;
+  --gold-500: #c6a355;
+  --gold-600: #a98741;
+  --gold-700: #856a30;
+
+  /* ── Semantic status ──────────────────────────────────────────────────── */
+  --ok: #2f7d4f;
+  --ok-bg: #e5f2ea;
+  --warn: #9a6d1f;
+  --warn-bg: #f7efdc;
+  --err: #b23b30;
+  --err-bg: #f9e8e6;
+  --info: #2f5f7d;
+  --info-bg: #e6eef3;
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  --font-display: "Archivo", "Poppins", "Heebo", "Noto Kufi Arabic", "DejaVu Sans", system-ui, sans-serif;
+  --font-body: "Manrope", "Poppins", "Heebo", "Noto Sans Arabic", "DejaVu Sans", system-ui, sans-serif;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.3rem;
+  --fs-2xl: 1.55rem;
+  --fs-3xl: clamp(1.7rem, 1.35rem + 1.4vw, 2.2rem);
+  --fs-4xl: clamp(2rem, 1.55rem + 2.4vw, 3rem);
+  --fs-display: clamp(2.4rem, 1.7rem + 3.6vw, 4.3rem);
+
+  --track-eyebrow: 0.18em;
+  --track-display: -0.015em;
+
+  /* ── Spacing (4px scale) ──────────────────────────────────────────────── */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-10: 3rem;
+  --sp-12: 4rem;
+  --sp-14: 5rem;
+  --sp-16: 6rem;
+
+  /* ── Shape ────────────────────────────────────────────────────────────── */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* ── Elevation ────────────────────────────────────────────────────────── */
+  --shadow-1: 0 1px 2px rgba(11, 11, 13, 0.07);
+  --shadow-2: 0 6px 24px rgba(11, 11, 13, 0.10);
+  --shadow-3: 0 18px 56px rgba(11, 11, 13, 0.20);
+  --ring-gold: 0 0 0 2px rgba(198, 163, 85, 0.45);
+
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  --t-fast: 140ms;
+  --t-med: 240ms;
+  --t-slow: 420ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* ── Layout ───────────────────────────────────────────────────────────── */
+  --container: 1240px;
+  --header-h: 64px;
+
+  /* ── Z scale ──────────────────────────────────────────────────────────── */
+  --z-header: 40;
+  --z-drawer: 60;
+  --z-dialog: 70;
+  --z-toast: 80;
+  --z-float: 50;
+
+  /* ── Default theme (light) — components consume ONLY these semantics ──── */
+  --bg: var(--paper);
+  --bg-raised: var(--white);
+  --fg: var(--ink-900);
+  --fg-muted: var(--gray-600);
+  --line: var(--gray-200);
+  --line-strong: var(--gray-300);
+  --accent: var(--gold-600);
+  --accent-strong: var(--gold-700);
+}
+
+/* Dark sections / dark surfaces — flip the semantic slots. */
+.theme-dark {
+  --bg: var(--ink-950);
+  --bg-raised: var(--ink-850);
+  --fg: var(--paper);
+  --fg-muted: var(--gray-400);
+  --line: rgba(246, 244, 239, 0.14);
+  --line-strong: rgba(246, 244, 239, 0.26);
+  --accent: var(--gold-500);
+  --accent-strong: var(--gold-400);
+  background-color: var(--bg);
+  color: var(--fg);
+}
+
+.theme-light {
+  --bg: var(--paper);
+  --bg-raised: var(--white);
+  --fg: var(--ink-900);
+  --fg-muted: var(--gray-600);
+  --line: var(--gray-200);
+  --line-strong: var(--gray-300);
+  --accent: var(--gold-600);
+  --accent-strong: var(--gold-700);
+  background-color: var(--bg);
+  color: var(--fg);
+}
+
+.theme-white {
+  --bg: var(--white);
+  --bg-raised: var(--white);
+  --fg: var(--ink-900);
+  --fg-muted: var(--gray-600);
+  --line: var(--gray-100);
+  --line-strong: var(--gray-200);
+  --accent: var(--gold-600);
+  --accent-strong: var(--gold-700);
+  background-color: var(--bg);
+  color: var(--fg);
+}
+
+/* Language-specific typography adjustments.
+   Arabic script must never receive letter-spacing (it breaks joining). */
+html[lang="ar"] {
+  --font-display: "Noto Kufi Arabic", "Noto Sans Arabic", "DejaVu Sans", system-ui, sans-serif;
+  --font-body: "Noto Sans Arabic", "Noto Kufi Arabic", "DejaVu Sans", system-ui, sans-serif;
+  --track-eyebrow: 0;
+  --track-display: 0;
+}
+
+html[lang="he"] {
+  --font-display: "Heebo", "FreeSans", "DejaVu Sans", system-ui, sans-serif;
+  --font-body: "Heebo", "FreeSans", "DejaVu Sans", system-ui, sans-serif;
+  --track-eyebrow: 0.06em;
+  --track-display: 0;
+}
