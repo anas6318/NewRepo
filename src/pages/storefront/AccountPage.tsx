@@ -7,6 +7,7 @@ import { useSession } from "../../services/store.tsx";
 import type { Order } from "../../services/types.ts";
 import { OrderTimeline } from "./TrackOrderPage.tsx";
 import { Price, useL } from "../../components/ui/bits.tsx";
+import { formatBadgeAdjustment } from "../../lib/badges.ts";
 
 export function AccountPage({ tab, orderNumber }: { tab: "profile" | "orders" | "order-detail" | string; orderNumber?: string }) {
   const { locale, t } = useI18n();
@@ -113,11 +114,25 @@ export function AccountPage({ tab, orderNumber }: { tab: "profile" | "orders" | 
                     <span>
                       {L(item.title)} ×{item.quantity} — {item.size}
                       {item.personalization && <span className="text-muted"> · {`${item.personalization.name ?? ""} ${item.personalization.number ?? ""}`.trim()}</span>}
+                      {item.badge && (
+                        <span className="text-muted">
+                          {" · "}
+                          {L(item.badge.name)} {formatBadgeAdjustment(item.badge.priceIls)}
+                        </span>
+                      )}
                     </span>
-                    <Price ils={item.lineTotalIls} />
+                    <Price ils={item.lineTotalIls} compareIls={item.price && item.price.saleDiscountIls > 0 ? item.price.regularUnitPriceIls * item.quantity : undefined} />
                   </li>
                 ))}
               </ul>
+              {detail.promotion && (
+                <div className="row row--between text-sm promo-line">
+                  <span className="promo-line__label">{detail.promotion.labelText}</span>
+                  <span className="promo-line__amount">
+                    −<Price ils={detail.promotion.discountIls} />
+                  </span>
+                </div>
+              )}
               <div className="row row--between" style={{ fontWeight: 800 }}>
                 <span>{t("cart.total")}</span>
                 <Price ils={detail.totalIls} />

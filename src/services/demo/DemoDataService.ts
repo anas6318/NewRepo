@@ -10,14 +10,17 @@
 import type { DataService, PlaceOrderInput, PlaceOrderResult, SessionInfo } from "../DataService.ts";
 import type {
   AuditEntry,
+  BadgeOption,
   Customer,
   DashboardStats,
   ImportRowResult,
   IssueReport,
+  JerseyVersion,
   Lead,
   Order,
   Product,
   ProductFilters,
+  PromotionConfig,
   Review,
   ShippingZone,
   StoreSettings,
@@ -25,17 +28,31 @@ import type {
 import {
   DEMO_CREDENTIALS,
   demoCategories,
+  demoBadges,
   demoCustomers,
   demoOrders,
-  demoPatches,
   demoProducts,
+  demoPromotions,
   demoReviews,
   demoSettings,
   demoSizeCharts,
   demoZones,
 } from "./seed-data.ts";
 import { filterProducts } from "../catalog.ts";
-import { priceLine, cartSubtotal } from "../../lib/pricing.ts";
+import { chartIdFor, normalizeChart, requiresSupplierConfirmation, resolveAvailability, SIZE_RULES, toPublicProduct, validateSizes } from "../sizing.ts";
+import {
+  badgeSnapshot,
+  normalizeBadgeOption,
+  parseImportedBadges,
+  resolveBadgeSelection,
+  sortBadges,
+  toPublicBadge,
+  toPublicBadgeSnapshot,
+  validateBadgeCatalog,
+} from "../../lib/badges.ts";
+import { priceLine, priceSnapshot, cartSubtotal } from "../../lib/pricing.ts";
+import { discountableAmount, priceValidUntil, resolveSale } from "../../lib/sales.ts";
+import { merchandiseUnitValue, promotionSnapshot, resolvePromotion, validatePromotion, type PromotionLine } from "../../lib/promotions.ts";
 import { evaluateFreeDelivery, resolveDeliveryFee } from "../../lib/delivery.ts";
 
 const LS_KEY = "crowned_demo_db_v1";
@@ -43,6 +60,8 @@ const SESSION_KEY = "crowned_demo_session_v1";
 
 interface DemoDb {
   products: Product[];
+  badges: BadgeOption[];
+  promotions: PromotionConfig[];
   orders: Order[];
   reviews: Review[];
   customers: Customer[];
@@ -57,6 +76,8 @@ interface DemoDb {
 function freshDb(): DemoDb {
   return {
     products: structuredClone(demoProducts),
+    badges: structuredClone(demoBadges),
+    promotions: structuredClone(demoPromotions),
     orders: structuredClone(demoOrders),
     reviews: structuredClone(demoReviews),
     customers: structuredClone(demoCustomers),
@@ -74,7 +95,10 @@ function freshDb(): DemoDb {
 function loadDb(): DemoDb {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw) as DemoDb;
+    // Spread over a fresh seed so a database persisted before a new
+    // collection existed (e.g. `badges`) gains it instead of reading
+    // `undefined`. Stored values always win over the seed.
+    if (raw) return { ...freshDb(), ...(JSON.parse(raw) as Partial<DemoDb>) } as DemoDb;
   } catch {
     /* corrupted storage → reseed */
   }
@@ -108,23 +132,38 @@ export class DemoDataService implements DataService {
   }
 
   async listProducts(filters?: ProductFilters) {
-    return filterProducts(this.db.products, filters ?? {}, demoCategories);
+    // Internal supplier fields never reach the storefront (parity with the
+    // Supabase service).
+    return filterProducts(this.db.products.map(toPublicProduct), filters ?? {}, demoCategories);
   }
 
   async getProduct(slug: string) {
-    return this.db.products.find((p) => p.slug === slug && p.status !== "draft" && p.status !== "archived") ?? null;
+    const found = this.db.products.find((p) => p.slug === slug && p.status !== "draft" && p.status !== "archived");
+    return found ? toPublicProduct(found) : null;
   }
 
   async searchSuggestions(query: string) {
     return (await this.listProducts({ query, sort: "featured" })).slice(0, 6);
   }
 
-  async listPatches() {
-    return demoPatches;
+  /** Storefront view: active options only, internal fields stripped. */
+  async listBadges() {
+    return sortBadges(this.badgeCatalog().filter((b) => b.active)).map(toPublicBadge);
+  }
+
+  /** Campaigns exactly as stored; the resolver decides which one is running. */
+  async listPromotions() {
+    return this.db.promotions ?? [];
+  }
+
+  /** Full catalog, normalised so pre-0004 rows load with their stored price. */
+  private badgeCatalog(): BadgeOption[] {
+    return (this.db.badges ?? []).map((b, i) => normalizeBadgeOption(b, i * 10));
   }
 
   async listSizeCharts() {
-    return demoSizeCharts;
+    // Normalised so legacy rows never render as if supplier-confirmed.
+    return demoSizeCharts.map(normalizeChart);
   }
 
   /* ── reviews ── */
@@ -165,12 +204,13 @@ export class DemoDataService implements DataService {
       }
       if (!product.sizes.includes(line.size)) return { ok: false, error: "invalid_size" };
       const adjustments: number[] = [];
+      let versionAdjustmentIls = 0;
       let version: Order["items"][number]["version"];
       if (product.versions.length > 0) {
         const v = product.versions.find((x) => x.version === line.version);
         if (!v) return { ok: false, error: "invalid_version" };
         version = v.version;
-        adjustments.push(v.adjustmentIls);
+        versionAdjustmentIls = v.adjustmentIls;
       }
       let sleeve: Order["items"][number]["sleeve"];
       if (product.sleeves.length > 1) {
@@ -180,18 +220,38 @@ export class DemoDataService implements DataService {
       } else if (product.sleeves[0] === "long") {
         sleeve = "long";
       }
-      let patchName: Order["items"][number]["patchName"];
-      let patchPrice = 0;
-      if (line.patchId) {
-        if (!product.patchIds.includes(line.patchId)) return { ok: false, error: "invalid_patch" };
-        const patch = demoPatches.find((p) => p.id === line.patchId && p.active);
-        if (!patch) return { ok: false, error: "invalid_patch" };
-        patchName = patch.name;
-        patchPrice = patch.priceIls;
-      }
+      // Badge: only the id comes from the browser. The price charged is
+      // resolved here from the catalog and the product's own override, so a
+      // tampered client price can never reach the order.
+      const selection = resolveBadgeSelection(product, this.badgeCatalog(), line.badgeId);
+      if (!selection.ok) return { ok: false, error: "invalid_badge" };
+      const badge = selection.badge ? badgeSnapshot(selection.badge, input.locale) : undefined;
       if (line.personalization && !product.personalizable) return { ok: false, error: "personalization_unavailable" };
-      const priced = priceLine({ basePriceIls: product.basePriceIls, adjustmentsIls: adjustments, patchPriceIls: patchPrice, quantity: line.quantity });
+
+      // The sale is resolved here, against this server's clock and the stored
+      // configuration. Nothing the browser sent about a sale is read: not a
+      // price, not a percentage, not an "on sale" flag.
+      const includeAddOns = product.sale?.includeAddOns === true;
+      const discountable = discountableAmount(
+        { basePriceIls: product.basePriceIls, versionAdjustmentIls, optionAdjustmentsIls: adjustments, badgePriceIls: badge?.priceIls ?? 0 },
+        includeAddOns,
+      );
+      const sale = resolveSale(product.sale, discountable);
+      const priceInput = {
+        basePriceIls: product.basePriceIls,
+        versionAdjustmentIls,
+        adjustmentsIls: adjustments,
+        badgePriceIls: badge?.priceIls ?? 0,
+        sale,
+        quantity: line.quantity,
+      };
+      const priced = priceLine(priceInput);
+      // A sale price is only ever described as "held until" for a line whose
+      // availability still needs a supplier check — and only for as long as
+      // the sale itself runs. Parity with the place-order edge function.
+      const heldForConfirmation = requiresSupplierConfirmation(resolveAvailability(product, version, line.size).status);
       items.push({
+        price: priceSnapshot(priceInput, priced, input.locale, heldForConfirmation ? priceValidUntil(sale) : undefined),
         productId: product.id,
         slug: product.slug,
         title: product.name,
@@ -200,8 +260,7 @@ export class DemoDataService implements DataService {
         sleeve,
         size: line.size,
         personalization: line.personalization,
-        patchId: line.patchId,
-        patchName,
+        ...(badge ? { badge, patchId: badge.badgeId, patchName: badge.name } : {}),
         unitPriceIls: priced.unitPriceIls,
         quantity: priced.quantity,
         lineTotalIls: priced.lineTotalIls,
@@ -209,6 +268,30 @@ export class DemoDataService implements DataService {
     }
 
     const subtotal = cartSubtotal(items.map((i) => ({ lineTotalIls: i.lineTotalIls })));
+
+    // ── cart promotion ──────────────────────────────────────────────────
+    // Recomputed here from the stored campaign and this server's clock.
+    // Nothing the browser sent about a promotion is read: not an active
+    // flag, not a percentage, not a discounted item, not an amount.
+    const promotionLines: PromotionLine[] = items.map((item) => {
+      const product = this.db.products.find((p) => p.id === item.productId);
+      return {
+        lineKey: `${item.productId}|${item.version ?? ""}|${item.size}`,
+        productId: item.productId,
+        slug: item.slug,
+        title: item.title,
+        ...(product?.categorySlug ? { categorySlug: product.categorySlug } : {}),
+        quantity: item.quantity,
+        // Merchandise only: the badge charge is excluded, and any product
+        // sale is already reflected in the final unit price.
+        merchandiseUnitIls: merchandiseUnitValue(item.price, item.unitPriceIls, item.badge?.priceIls ?? 0),
+        hasProductSale: (item.price?.saleDiscountIls ?? 0) > 0,
+      };
+    });
+    const promotionResult = resolvePromotion(this.db.promotions, promotionLines);
+    const promotion = promotionResult && promotionResult.discountIls > 0 ? promotionSnapshot(promotionResult, input.locale) : undefined;
+    const promotionDiscountIls = promotion?.discountIls ?? 0;
+    const merchandiseAfterPromotion = Math.round((subtotal - promotionDiscountIls) * 100) / 100;
     const fd = evaluateFreeDelivery(
       items.map((i) => {
         const product = this.db.products.find((p) => p.id === i.productId);
@@ -227,6 +310,19 @@ export class DemoDataService implements DataService {
     const now = new Date().toISOString();
     const isBank = input.paymentMethod === "bank_transfer";
     const session = this.readSession();
+
+    // Supplier-availability gate: any line the supplier has not confirmed
+    // holds the whole order before production. Nothing is reserved, ordered
+    // or produced while it sits here.
+    const pending = items
+      .map((item) => {
+        const product = this.db.products.find((p) => p.slug === item.slug);
+        if (!product) return null;
+        const state = resolveAvailability(product, item.version, item.size);
+        return requiresSupplierConfirmation(state.status) ? { slug: item.slug, version: item.version, size: item.size } : null;
+      })
+      .filter((x): x is { slug: string; version: JerseyVersion | undefined; size: string } => x !== null);
+    const needsSupplierCheck = pending.length > 0;
     const order: Order = {
       id: `ord-${Date.now()}`,
       orderNumber,
@@ -235,17 +331,25 @@ export class DemoDataService implements DataService {
       customer: { ...input.customer, customerId: session.customer?.id },
       items,
       subtotalIls: subtotal,
+      // The promotion is a separate, visible line — never folded into the
+      // subtotal, so the customer can see exactly what it saved them.
+      ...(promotion ? { promotion, promotionDiscountIls } : {}),
       deliveryIls,
       freeDelivery: fd.isFreeDeliveryUnlocked,
-      totalIls: subtotal + deliveryIls,
+      totalIls: Math.round((merchandiseAfterPromotion + deliveryIls) * 100) / 100,
       zoneId: zone.id,
       paymentMethod: input.paymentMethod,
       paymentStatus: isBank ? "awaiting_payment" : "pending",
-      fulfillmentStatus: isBank ? "awaiting_payment" : "order_received",
+      fulfillmentStatus: needsSupplierCheck ? "awaiting_supplier_confirmation" : isBank ? "awaiting_payment" : "order_received",
       tracking: [
         { status: "order_received", at: now },
-        ...(isBank ? [{ status: "awaiting_payment" as const, at: now }] : []),
+        ...(needsSupplierCheck
+          ? [{ status: "awaiting_supplier_confirmation" as const, at: now }]
+          : isBank
+            ? [{ status: "awaiting_payment" as const, at: now }]
+            : []),
       ],
+      ...(needsSupplierCheck ? { supplierConfirmation: { required: true, status: "pending" as const, items: pending } } : {}),
       sheetsSync: { status: "pending" },
       isDemo: true,
     };
@@ -280,11 +384,25 @@ export class DemoDataService implements DataService {
     const c = norm(contact);
     if (c.length < 4) return null;
     if (norm(order.customer.email) !== c && norm(order.customer.phone) !== c) return null;
-    return order;
+    // Mirror the production edge function: internal/supplier fields are
+    // stripped before the order reaches the customer-facing tracker.
+    const sanitized: Order = {
+      ...order,
+      // The badge snapshot carries an internal supplier reference for the
+      // owner's own ordering; the customer sees only name and price.
+      items: order.items.map((i) => (i.badge ? { ...i, badge: toPublicBadgeSnapshot(i.badge) } : i)),
+    };
+    delete sanitized.internalNotes;
+    delete sanitized.supplierReference;
+    delete sanitized.trackingNumber;
+    delete sanitized.trackingUrl;
+    return sanitized;
   }
 
   async listCustomerOrders(customerId: string) {
-    return this.db.orders.filter((o) => o.customer.customerId === customerId);
+    return this.db.orders
+      .filter((o) => o.customer.customerId === customerId)
+      .map((o) => ({ ...o, items: o.items.map((i) => (i.badge ? { ...i, badge: toPublicBadgeSnapshot(i.badge) } : i)) }));
   }
 
   /* ── leads / issues ── */
@@ -418,6 +536,17 @@ export class DemoDataService implements DataService {
       if (!demoCategories.some((c) => c.slug === cat)) errors.push(`unknown category "${cat}"`);
       const duplicate = this.db.products.some((p) => p.slug === slug);
       if (duplicate) errors.push("duplicate slug — skipped");
+      // Sizes must be valid for the product type. Supplier aliases (P/G/GG…)
+      // are normalised; anything still unrecognised is reported, not guessed.
+      const isKids = cat === "kids";
+      const chart = chartIdFor({ kids: isKids, categorySlug: cat, tags: [] });
+      const requested = (row.sizes ?? "").split(/[|,]/).map((s) => s.trim()).filter(Boolean);
+      const { valid, invalid } = validateSizes(chart, requested);
+      if (invalid.length) errors.push(`invalid sizes for ${chart}: ${invalid.join(", ")}`);
+      // Badges: imports may only reference options that already exist in the
+      // owner-managed catalog. Untrusted supplier text never creates one.
+      const badgeImport = parseImportedBadges(row, this.badgeCatalog());
+      errors.push(...badgeImport.errors);
       if (errors.length) {
         results.push({ row: i + 1, ok: false, slug, errors, duplicate });
         return;
@@ -437,9 +566,10 @@ export class DemoDataService implements DataService {
         versions: [],
         sleeves: ["short"],
         longSleeveAdjustmentIls: 0,
-        sizes: ["S", "M", "L", "XL", "2XL"],
+        sizes: valid.length ? valid : [...SIZE_RULES[chart].default],
         personalizable: row.personalizable !== "false",
         patchIds: [],
+        badges: badgeImport.settings,
         qualifiesForFreeDelivery: true,
         featured: false,
         images: [],
@@ -447,6 +577,8 @@ export class DemoDataService implements DataService {
         tags: [],
         rightsStatus: "pending_review",
         supplier: { sku: row.supplier_sku?.trim(), reference: row.supplier_ref?.trim(), costUsd: Number(row.supplier_cost_usd) || undefined },
+        // Catalog presence ≠ inventory: imports are never marked available.
+        availability: { status: "confirmation_required", lastCheckedAt: undefined },
         isDemo: true,
         createdAt: new Date().toISOString(),
       });
@@ -463,10 +595,21 @@ export class DemoDataService implements DataService {
     return this.db.orders;
   }
 
-  async adminUpdateOrder(orderNumber: string, patch: Parameters<DataService["adminUpdateOrder"]>[1]) {
+  async adminUpdateOrder(orderNumber: string, incoming: Parameters<DataService["adminUpdateOrder"]>[1]) {
     const staff = this.requireStaff();
+    let patch = { ...incoming };
     const order = this.db.orders.find((o) => o.orderNumber === orderNumber);
     if (!order) return { ok: false };
+    // Supplier decisions are recorded with who/when and appended to the
+    // timeline; a rejection never advances the order into production.
+    if (patch.supplierConfirmation && patch.supplierConfirmation.status !== order.supplierConfirmation?.status) {
+      const decided = { ...patch.supplierConfirmation, decidedBy: staff.email, decidedAt: new Date().toISOString() };
+      patch = { ...patch, supplierConfirmation: decided };
+      if (decided.status === "confirmed" && !patch.fulfillmentStatus) {
+        patch.fulfillmentStatus = order.paymentMethod === "bank_transfer" && order.paymentStatus !== "paid" ? "awaiting_payment" : "payment_confirmed";
+      }
+      if (decided.status === "rejected" && !patch.fulfillmentStatus) patch.fulfillmentStatus = "supplier_unavailable";
+    }
     if (patch.fulfillmentStatus && patch.fulfillmentStatus !== order.fulfillmentStatus) {
       order.tracking.push({ status: patch.fulfillmentStatus, at: new Date().toISOString() });
       if (patch.fulfillmentStatus === "production_started") order.productionStartedAt = new Date().toISOString();
@@ -505,6 +648,41 @@ export class DemoDataService implements DataService {
     review.status = status;
     if (verified !== undefined) review.verified = verified;
     this.audit(staff.email, "review_moderated", id, status);
+    this.save();
+    return { ok: true };
+  }
+
+  /** Staff view: inactive options and supplier references included. */
+  async adminListBadges() {
+    this.requireStaff();
+    return sortBadges(this.badgeCatalog());
+  }
+
+  async adminSaveBadges(badges: BadgeOption[]) {
+    const staff = this.requireStaff();
+    const errors = validateBadgeCatalog(badges);
+    if (errors.length) return { ok: false, error: errors.join(" ") };
+    // Sort order is normalised on save so reordering in the UI is stable.
+    this.db.badges = sortBadges(badges).map((b, i) => ({ ...b, sortOrder: (i + 1) * 10 }));
+    this.audit(staff.email, "badges_updated", `${badges.length} options`);
+    this.save();
+    return { ok: true };
+  }
+
+  async adminListPromotions() {
+    this.requireStaff();
+    return this.db.promotions ?? [];
+  }
+
+  async adminSavePromotions(promotions: PromotionConfig[]) {
+    const staff = this.requireStaff();
+    // Server-side validation: an unsafe campaign is never stored enabled.
+    for (const p of promotions) {
+      const errors = validatePromotion(p);
+      if (errors.length) return { ok: false, error: errors.join(" ") };
+    }
+    this.db.promotions = promotions.map((p, i) => ({ ...p, sortOrder: (i + 1) * 10 }));
+    this.audit(staff.email, "promotions_updated", `${promotions.length} campaigns`);
     this.save();
     return { ok: true };
   }

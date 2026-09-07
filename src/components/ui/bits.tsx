@@ -1,7 +1,7 @@
 /** Small shared UI pieces: price, stars, badges, empty state, localized text. */
 import type { ReactNode } from "react";
 import { formatPrice, useI18n } from "../../lib/i18n/index.tsx";
-import type { LocalizedText, ProductStatus } from "../../services/types.ts";
+import type { LocalizedText, ProductStatus, ResolvedSale } from "../../services/types.ts";
 import { IconStar } from "./Icons.tsx";
 
 export function useL() {
@@ -14,6 +14,25 @@ export function Price({ ils, compareIls, className }: { ils: number; compareIls?
     <span className={`price ${className ?? ""}`}>
       <bdi className="price__amount">{formatPrice(ils)}</bdi>
       {compareIls !== undefined && compareIls > ils && <bdi className="price__compare">{formatPrice(compareIls)}</bdi>}
+    </span>
+  );
+}
+
+/**
+ * The owner-configured sale label. Only ever rendered for a sale the
+ * resolver has already judged to be running (or, when the owner opted in, a
+ * truthful "starts on …" note for one that has not opened yet). There is no
+ * countdown and no manufactured urgency.
+ */
+export function SaleBadge({ sale, className }: { sale: ResolvedSale; className?: string }) {
+  const { locale } = useI18n();
+  const L = useL();
+  if (sale.status !== "active" && sale.status !== "scheduled") return null;
+  const starts = sale.startsAt ? new Date(sale.startsAt) : undefined;
+  return (
+    <span className={`badge ${sale.status === "active" ? "badge--sale" : "badge--muted"} ${className ?? ""}`}>
+      {L(sale.label)}
+      {sale.status === "scheduled" && starts ? ` · ${starts.toLocaleDateString(locale === "en" ? "en-GB" : locale === "he" ? "he-IL" : "ar")}` : ""}
     </span>
   );
 }

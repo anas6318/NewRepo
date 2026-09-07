@@ -147,9 +147,30 @@ export const IconShield = (p: P) => (
   </svg>
 );
 
+export const IconShirt = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M8.5 4 4 6.8l1.7 3.7 2-1.1V20h8.6v-10.6l2 1.1L20 6.8 15.5 4a4.6 4.6 0 0 1-7 0Z" />
+  </svg>
+);
+
 export const IconRuler = (p: P) => (
   <svg {...base(p)}>
     <rect x="2.5" y="9" width="19" height="6.5" rx="1.5" />
     <path d="M6.5 9v3M10.5 9v2M14.5 9v3M18.5 9v2" />
+  </svg>
+);
+
+/** Four-point sparkle — marks the styled presentation view. */
+export const IconSparkle = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3.5 13.7 9c.2.6.7 1.1 1.3 1.3l5.5 1.7-5.5 1.7c-.6.2-1.1.7-1.3 1.3L12 20.5 10.3 15c-.2-.6-.7-1.1-1.3-1.3L3.5 12 9 10.3c.6-.2 1.1-.7 1.3-1.3z" />
+  </svg>
+);
+
+/** Camera — marks the real product photograph. */
+export const IconCamera = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 8.5h2.6l1.3-2.2h8.2l1.3 2.2H20a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z" />
+    <circle cx="12" cy="13.5" r="3.2" />
   </svg>
 );

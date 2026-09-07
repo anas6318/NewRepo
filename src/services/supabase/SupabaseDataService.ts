@@ -13,15 +13,16 @@
 import type { DataService, PlaceOrderInput, PlaceOrderResult, SessionInfo } from "../DataService.ts";
 import type {
   AuditEntry,
+  BadgeOption,
   Customer,
   DashboardStats,
   ImportRowResult,
   IssueReport,
   Lead,
   Order,
-  PatchDef,
   Product,
   ProductFilters,
+  PromotionConfig,
   Review,
   ShippingZone,
   SizeChart,
@@ -29,6 +30,8 @@ import type {
 } from "../types.ts";
 import { SupabaseClient } from "./client.ts";
 import { filterProducts } from "../catalog.ts";
+import { normalizeChart, toPublicProduct } from "../sizing.ts";
+import { normalizeBadgeOption, sortBadges, toPublicBadge, toPublicBadgeSnapshot } from "../../lib/badges.ts";
 import { demoCategories } from "../demo/seed-data.ts";
 
 /** Table rows store the domain objects in a `data` jsonb column plus a few
@@ -60,26 +63,40 @@ export class SupabaseDataService implements DataService {
 
   async listProducts(filters?: ProductFilters) {
     const rows = await this.guard().select<Row<Product>>("products", "select=id,data&status=not.in.(draft,archived)");
-    return filterProducts(rows.map((r) => r.data), filters ?? {}, await this.listCategories());
+    // Internal supplier fields never reach the storefront.
+    return filterProducts(rows.map((r) => toPublicProduct(r.data)), filters ?? {}, await this.listCategories());
   }
 
   async getProduct(slug: string) {
     const rows = await this.guard().select<Row<Product>>("products", `select=id,data&slug=eq.${encodeURIComponent(slug)}&status=not.in.(draft,archived)&limit=1`);
-    return rows[0]?.data ?? null;
+    const row = rows[0];
+    return row ? toPublicProduct(row.data) : null;
   }
 
   async searchSuggestions(query: string) {
     return (await this.listProducts({ query })).slice(0, 6);
   }
 
-  async listPatches() {
-    const rows = await this.guard().select<Row<PatchDef>>("patches", "select=id,data&active=eq.true");
+  async listBadges() {
+    // `supplier_ref` is a separate column and is deliberately NOT selected —
+    // migration 0004 also revokes it from anon/authenticated at the database
+    // level, so the internal reference cannot leak even if this call changed.
+    const rows = await this.guard().select<Row<BadgeOption>>("patches", "select=id,data&active=eq.true");
+    return sortBadges(rows.map((r, i) => normalizeBadgeOption(r.data, i * 10))).map(toPublicBadge);
+  }
+
+  /** Public read: campaigns are public data (the label is customer-facing).
+   * RLS restricts writes to staff — see migration 0006. */
+  async listPromotions() {
+    const rows = await this.guard().select<Row<PromotionConfig>>("promotions", "select=id,data&order=sort_order");
     return rows.map((r) => r.data);
   }
 
   async listSizeCharts() {
     const rows = await this.guard().select<Row<SizeChart>>("size_charts", "select=id,data");
-    return rows.map((r) => r.data);
+    // Charts stored before the 0003 migration keep the legacy flat shape;
+    // normalising marks them preliminary rather than falsely confirmed.
+    return rows.map((r) => normalizeChart(r.data));
   }
 
   /* ── reviews ── */
@@ -118,7 +135,9 @@ export class SupabaseDataService implements DataService {
 
   async listCustomerOrders(customerId: string) {
     const rows = await this.guard().select<Row<Order>>("orders", `select=id,data&customer_id=eq.${encodeURIComponent(customerId)}&order=created_at.desc`);
-    return rows.map((r) => r.data);
+    // The badge snapshot keeps an internal supplier reference for the owner's
+    // ordering workflow; customers never see it.
+    return rows.map((r) => ({ ...r.data, items: r.data.items.map((i) => (i.badge ? { ...i, badge: toPublicBadgeSnapshot(i.badge) } : i)) }));
   }
 
   /* ── leads / issues ── */
@@ -270,6 +289,36 @@ export class SupabaseDataService implements DataService {
   async adminModerateReview(id: string, status: Review["status"], verified?: boolean) {
     await this.guard().update("reviews", `id=eq.${encodeURIComponent(id)}`, { status, ...(verified !== undefined ? { verified } : {}) });
     return { ok: true };
+  }
+
+  /** Staff-only read through the edge function: the service role is the only
+   * identity permitted to see internal supplier references. */
+  async adminListBadges() {
+    const res = await this.guard().invoke<{ badges: BadgeOption[] }>("admin-actions?action=list-badges", {});
+    return sortBadges((res.badges ?? []).map((b, i) => normalizeBadgeOption(b, i * 10)));
+  }
+
+  async adminSaveBadges(badges: BadgeOption[]) {
+    try {
+      await this.guard().invoke("admin-actions?action=save-badges", { badges });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "save_failed" };
+    }
+  }
+
+  async adminListPromotions() {
+    const res = await this.guard().invoke<{ promotions: PromotionConfig[] }>("admin-actions?action=list-promotions", {});
+    return res.promotions ?? [];
+  }
+
+  async adminSavePromotions(promotions: PromotionConfig[]) {
+    try {
+      await this.guard().invoke("admin-actions?action=save-promotions", { promotions });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "save_failed" };
+    }
   }
 
   async adminSaveZones(zones: ShippingZone[]) {

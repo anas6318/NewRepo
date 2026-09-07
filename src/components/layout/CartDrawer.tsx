@@ -6,6 +6,8 @@ import { track } from "../../lib/analytics.ts";
 import { Price, useL } from "../ui/bits.tsx";
 import { IconBag, IconClose, IconMinus, IconPlus, IconTrash } from "../ui/Icons.tsx";
 import { FreeDeliveryProgress } from "../product/FreeDeliveryProgress.tsx";
+import { formatBadgeAdjustment } from "../../lib/badges.ts";
+import { PromotionLine, PromotionProgress } from "../cart/PromotionSummary.tsx";
 
 export function CartDrawer() {
   const { locale, t } = useI18n();
@@ -72,7 +74,7 @@ export function CartDrawer() {
                           line.personalization?.name || line.personalization?.number
                             ? `${line.personalization?.name ?? ""} ${line.personalization?.number ?? ""}`.trim()
                             : null,
-                          line.patchName ? L(line.patchName) : null,
+                          line.badge ? `${L(line.badge.name)} ${formatBadgeAdjustment(line.badge.priceIls)}`.trim() : line.patchName ? L(line.patchName) : null,
                         ]
                           .filter(Boolean)
                           .join(" · ")}
@@ -87,7 +89,10 @@ export function CartDrawer() {
                             <IconPlus size={14} />
                           </button>
                         </div>
-                        <Price ils={line.unitPriceIls * line.quantity} />
+                        <Price
+                          ils={line.unitPriceIls * line.quantity}
+                          compareIls={line.price && line.price.saleDiscountIls > 0 ? line.price.regularUnitPriceIls * line.quantity : undefined}
+                        />
                       </div>
                     </div>
                     <button
@@ -114,6 +119,8 @@ export function CartDrawer() {
               <span className="text-sm text-muted">{t("cart.subtotal")}</span>
               <Price ils={cart.subtotalIls} />
             </div>
+            <PromotionLine promotion={cart.promotion} />
+            <PromotionProgress promotion={cart.promotion} />
             <p className="text-xs text-muted">{t("checkout.hiddenFeesNote")}</p>
             <Link to={`/${locale}/checkout`} className="btn btn--gold btn--block" onClick={() => cart.setDrawerOpen(false)}>
               {t("cart.checkout")}

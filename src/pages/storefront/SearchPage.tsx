@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "../../lib/router.tsx";
+import { coverImage } from "../../lib/media.ts";
 import { useI18n } from "../../lib/i18n/index.tsx";
 import { usePageMeta } from "../../lib/seo.tsx";
 import { dataService } from "../../services/index.ts";
@@ -128,7 +129,7 @@ export function SearchPage() {
             {suggestions.map((p, i) => (
               <li key={p.id} role="option" id={`sugg-${i}`} aria-selected={i === highlight}>
                 <Link to={`/${locale}/product/${p.slug}`} className={`search-sugg${i === highlight ? " is-active" : ""}`}>
-                  <img src={p.images[0]?.src ?? ""} alt="" width={40} height={50} />
+                  <img src={coverImage(p)?.src ?? ""} alt="" width={40} height={50} />
                   <span>{L(p.name)}</span>
                   <bdi className="text-muted">₪{p.basePriceIls}</bdi>
                 </Link>

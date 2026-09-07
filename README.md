@@ -47,8 +47,10 @@ sandbox:build && npm run sandbox:serve` → http://localhost:4173.
 
 ## Going live (summary — full steps in docs/deployment-guide.md)
 
-1. Create a Supabase project; run `supabase/migrations/0001_schema.sql` then
-   `0002_rls.sql`; seed dev/staging with `supabase/seed.sql` (never prod).
+1. Create a Supabase project; run the migrations in order —
+   `0001_schema.sql`, `0002_rls.sql`, `0003_size_charts_and_supplier_availability.sql`,
+   `0004_configurable_badge_options.sql`; seed dev/staging with
+   `supabase/seed.sql` (never prod).
 2. Deploy edge functions in `supabase/functions/` and set their secrets
    (`.env.example` lists every name).
 3. Set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (+ site URL, WhatsApp,

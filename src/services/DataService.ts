@@ -6,6 +6,7 @@
  */
 import type {
   AuditEntry,
+  BadgeOption,
   CategoryDef,
   Customer,
   DashboardStats,
@@ -14,10 +15,10 @@ import type {
   IssueReport,
   Lead,
   Order,
-  PatchDef,
   PaymentStatus,
   Product,
   ProductFilters,
+  PromotionConfig,
   Review,
   ShippingZone,
   SizeChart,
@@ -35,7 +36,9 @@ export interface PlaceOrderInput {
     sleeve?: string;
     size: string;
     personalization?: { name?: string; number?: string };
-    patchId?: string;
+    /** Only the id travels from the browser — the price is always resolved
+     * server-side from the catalog, never accepted from the client. */
+    badgeId?: string;
     quantity: number;
   }[];
   marketingConsent?: boolean;
@@ -62,7 +65,10 @@ export interface DataService {
   listProducts(filters?: ProductFilters): Promise<Product[]>;
   getProduct(slug: string): Promise<Product | null>;
   searchSuggestions(query: string): Promise<Product[]>;
-  listPatches(): Promise<PatchDef[]>;
+  /** Active badge options, internal supplier fields already stripped. */
+  listBadges(): Promise<BadgeOption[]>;
+  /** Cart promotion campaigns. The storefront resolves which one is running. */
+  listPromotions(): Promise<PromotionConfig[]>;
   listSizeCharts(): Promise<SizeChart[]>;
 
   /* reviews */
@@ -108,12 +114,20 @@ export interface DataService {
       trackingUrl: string;
       estimatedDeliveryAt: string;
       internalNotes: string;
+      /** Supplier-availability decision for orders held before production. */
+      supplierConfirmation: NonNullable<Order["supplierConfirmation"]>;
     }>,
   ): Promise<{ ok: boolean; order?: Order }>;
   adminResyncOrder(orderNumber: string): Promise<{ ok: boolean; message: string }>;
   adminListCustomers(): Promise<Customer[]>;
   adminListReviews(): Promise<Review[]>;
   adminModerateReview(id: string, status: Review["status"], verified?: boolean): Promise<{ ok: boolean }>;
+  /** Full catalog including inactive options and internal supplier
+   * references — staff-only, never reachable from the storefront. */
+  adminListBadges(): Promise<BadgeOption[]>;
+  adminListPromotions(): Promise<PromotionConfig[]>;
+  adminSavePromotions(promotions: PromotionConfig[]): Promise<{ ok: boolean; error?: string }>;
+  adminSaveBadges(badges: BadgeOption[]): Promise<{ ok: boolean; error?: string }>;
   adminSaveZones(zones: ShippingZone[]): Promise<{ ok: boolean }>;
   adminSaveSettings(settings: StoreSettings): Promise<{ ok: boolean }>;
   adminDashboard(): Promise<DashboardStats>;

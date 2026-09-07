@@ -5,15 +5,18 @@ async function totalText(page) {
   return (await page.locator("#buy-actions .price").first().textContent()) ?? "";
 }
 
-export async function patch_adds_exactly_5_ils({ page, BASE }) {
+/** The badge price is configuration, not a constant. This asserts the
+ * MIGRATED legacy option still adds its stored ₪5 — the per-option,
+ * per-product and override cases live in 12-badge-options.e2e.mjs. */
+export async function migrated_legacy_badge_still_adds_its_stored_5_ils({ page, BASE }) {
   await page.goto(`${BASE}/en/product/crimson-2005`, { waitUntil: "networkidle" });
   assert.ok((await totalText(page)).includes("170"), "base ₪170");
-  await page.getByRole("button", { name: /League Patch/ }).click();
+  await page.getByRole("button", { name: /^League badge/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("175"), "patch → ₪175");
-  await page.getByRole("button", { name: /No patch/ }).click();
+  assert.ok((await totalText(page)).includes("175"), "legacy badge → ₪175");
+  await page.getByRole("button", { name: /No badge/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("170"), "removing patch restores ₪170");
+  assert.ok((await totalText(page)).includes("170"), "removing the badge restores ₪170");
 }
 
 export async function player_version_adjustment_applies({ page, BASE }) {

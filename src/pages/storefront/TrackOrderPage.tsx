@@ -10,17 +10,22 @@ import { Field } from "../../components/product/ReviewsSection.tsx";
 import { Price, useL } from "../../components/ui/bits.tsx";
 import { IconCheck } from "../../components/ui/Icons.tsx";
 import { IssueReportForm } from "../../components/checkout/IssueReportForm.tsx";
+import { formatBadgeAdjustment } from "../../lib/badges.ts";
 
 const STATUS_KEY: Record<FulfillmentStatus, string> = {
   order_received: "statusOrderReceived",
+  awaiting_supplier_confirmation: "statusAwaitingSupplierConfirmation",
+  supplier_unavailable: "statusSupplierUnavailable",
   awaiting_payment: "statusAwaitingPayment",
   payment_confirmed: "statusPaymentConfirmed",
   sent_to_supplier: "statusSentToSupplier",
   production_started: "statusProductionStarted",
   supplier_processing: "statusSupplierProcessing",
+  quality_inspection: "statusQualityInspection",
   supplier_dispatched: "statusSupplierDispatched",
   in_transit: "statusInTransit",
   arrived_locally: "statusArrivedLocally",
+  ready_for_pickup: "statusReadyForPickup",
   out_for_delivery: "statusOutForDelivery",
   delivered: "statusDelivered",
   issue_reported: "statusIssueReported",
@@ -93,19 +98,36 @@ export function TrackOrderPage() {
               {new Date(order.createdAt).toLocaleDateString(locale === "en" ? "en-GB" : locale === "he" ? "he-IL" : "ar")} · {order.items.length}{" "}
               {t("tracking.items")} · <Price ils={order.totalIls} />
             </p>
-            {order.trackingNumber && (
-              <p className="text-sm">
-                {t("tracking.trackingNumber")}: <bdi className="num">{order.trackingNumber}</bdi>
-                {order.trackingUrl && (
-                  <>
-                    {" — "}
-                    <a href={order.trackingUrl} target="_blank" rel="noreferrer" className="text-gold">
-                      {t("tracking.carrierLink")}
-                    </a>
-                  </>
-                )}
+            {/* What was actually ordered, from each item's own snapshot —
+                never re-resolved from the current badge catalog. */}
+            <ul className="stack--sm stack text-sm" style={{ listStyle: "none", padding: 0 }}>
+              {order.items.map((item, i) => (
+                <li key={i} className="row row--between row--wrap">
+                  <span>
+                    {L(item.title)} ×{item.quantity} · {item.size}
+                    {item.badge && (
+                      <span className="text-muted">
+                        {" · "}
+                        {L(item.badge.name)} {formatBadgeAdjustment(item.badge.priceIls)}
+                      </span>
+                    )}
+                    {item.price?.saleLabel && <span className="badge badge--sale badge--inline">{item.price.saleLabel}</span>}
+                  </span>
+                  <Price
+                    ils={item.lineTotalIls}
+                    compareIls={item.price && item.price.saleDiscountIls > 0 ? item.price.regularUnitPriceIls * item.quantity : undefined}
+                    className="text-sm"
+                  />
+                </li>
+              ))}
+            </ul>
+            {order.promotion && (
+              <p className="text-sm promo-line__amount">
+                {order.promotion.labelText} −<Price ils={order.promotion.discountIls} className="text-sm" />
               </p>
             )}
+            {/* Supplier/carrier tracking numbers are internal — the customer
+                sees only the clean CROWNED timeline. */}
             {order.estimatedDeliveryAt && (
               <p className="text-sm text-muted">
                 {t("tracking.estimatedDelivery")}: {new Date(order.estimatedDeliveryAt).toLocaleDateString(locale === "en" ? "en-GB" : locale === "he" ? "he-IL" : "ar")}
@@ -131,9 +153,16 @@ export function TrackOrderPage() {
 export function OrderTimeline({ order }: { order: Order }) {
   const { locale, t } = useI18n();
   const reached = new Map(order.tracking.map((ev) => [ev.status, ev.at]));
-  const isTerminalBad = ["cancelled", "refunded", "issue_reported"].includes(order.fulfillmentStatus);
-  const flow: FulfillmentStatus[] = order.paymentMethod === "bank_transfer" ? ["order_received", "awaiting_payment", ...FULFILLMENT_FLOW.slice(1)] : FULFILLMENT_FLOW;
+  // Orders held for a supplier check show that step explicitly, so the
+  // customer sees exactly where the order stands before production starts.
+  const base: FulfillmentStatus[] = order.supplierConfirmation?.required
+    ? ["order_received", "awaiting_supplier_confirmation", ...FULFILLMENT_FLOW.slice(1)]
+    : FULFILLMENT_FLOW;
+  const flow: FulfillmentStatus[] = order.paymentMethod === "bank_transfer" ? [base[0]!, "awaiting_payment", ...base.slice(1)] : base;
   const currentIdx = flow.findIndex((s) => s === order.fulfillmentStatus);
+  // Statuses outside the main flow (supplier_processing, ready_for_pickup,
+  // issue_reported, cancelled, refunded) render appended as the current step.
+  const offFlow = currentIdx === -1;
 
   return (
     <ol className="timeline card" aria-label={t("tracking.timeline")}>
@@ -153,7 +182,7 @@ export function OrderTimeline({ order }: { order: Order }) {
           </li>
         );
       })}
-      {isTerminalBad && (
+      {offFlow && (
         <li className="is-current">
           <span className="timeline__dot" />
           <p className="timeline__label">{t(`tracking.${STATUS_KEY[order.fulfillmentStatus]}`)}</p>

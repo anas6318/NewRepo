@@ -10,19 +10,25 @@
  * protected designs (spec §30).
  */
 import type {
+  BadgeOption,
   CategoryDef,
   Customer,
+  LocalizedText,
   Order,
-  PatchDef,
   Product,
+  ProductBadgeSetting,
+  PromotionConfig,
+  SaleConfig,
   Review,
   ShippingZone,
   SizeChart,
   StoreSettings,
 } from "../types.ts";
+import { chartIdFor, CONFIRMED_SIZE_CHARTS, SIZE_RULES } from "../sizing.ts";
 
 const L = (ar: string, he: string, en: string) => ({ ar, he, en });
 
+/** @deprecated prefer SIZE_RULES[chartId].default — kept for admin defaults. */
 export const ADULT_SIZES = ["S", "M", "L", "XL", "2XL"];
 export const KIDS_SIZES = ["16", "18", "20", "22", "24", "26", "28"];
 
@@ -103,30 +109,113 @@ export const demoCategories: CategoryDef[] = [
 ];
 
 /* ── Patches (spec §10) ───────────────────────────────────────────────────── */
-export const demoPatches: PatchDef[] = [
-  { id: "league-patch", name: L("شارة الدوري", "פאץ' ליגה", "League Patch"), priceIls: 5, active: true },
-  { id: "cup-patch", name: L("شارة الكأس", "פאץ' גביע", "Cup Patch"), priceIls: 5, active: true },
-  { id: "champions-patch", name: L("شارة الأبطال", "פאץ' אלופות", "Champions Patch"), priceIls: 5, active: true },
+/* ── Badge / patch options ─────────────────────────────────────────────────
+   The global catalog the owner manages from Admin → Badge / patch options.
+   The first three are the legacy ₪5 options carried forward by migration
+   0004 — their price is data here, exactly as it will be in the database,
+   not a constant anywhere in the application. The rest demonstrate that
+   different badges genuinely carry different prices. */
+export const demoBadges: BadgeOption[] = [
+  { id: "league-patch", code: "league", name: L("شارة الدوري", "פאץ' הליגה", "League badge"), priceIls: 5, active: true, sortOrder: 10, supplierReference: "SUP-BDG-LEAGUE" },
+  { id: "cup-patch", code: "cup", name: L("شارة الكأس", "פאץ' הגביע", "Cup badge"), priceIls: 5, active: true, sortOrder: 20, supplierReference: "SUP-BDG-CUP" },
+  { id: "champions-patch", code: "champions", name: L("شارة الأبطال", "פאץ' האלופות", "Champions badge"), priceIls: 5, active: true, sortOrder: 30, supplierReference: "SUP-BDG-CHAMP" },
+  {
+    id: "ucl-badge",
+    code: "ucl",
+    name: L("شارة دوري الأبطال", "פאץ' ליגת האלופות", "Champions League badge"),
+    description: L("شارة مطرّزة على الكمّ، مطابقة لموسم القميص.", "פאץ' רקום על השרוול, תואם לעונת החולצה.", "Embroidered sleeve badge matched to the shirt's season."),
+    priceIls: 10,
+    active: true,
+    sortOrder: 40,
+    supplierReference: "SUP-BDG-UCL-01",
+  },
+  {
+    id: "club-world-cup-badge",
+    code: "club_world_cup",
+    name: L("شارة كأس العالم للأندية", "פאץ' גביע העולם לקבוצות", "Club World Cup badge"),
+    priceIls: 8,
+    active: true,
+    sortOrder: 50,
+    supplierReference: "SUP-BDG-CWC-01",
+  },
+  {
+    id: "national-tournament-badge",
+    code: "national_tournament",
+    name: L("شارة بطولة المنتخبات", "פאץ' טורניר נבחרות", "National tournament badge"),
+    priceIls: 7,
+    active: true,
+    sortOrder: 60,
+  },
+  /* Disabled globally — proves an inactive option is never offered. */
+  {
+    id: "retired-badge",
+    code: "retired_competition",
+    name: L("شارة بطولة سابقة", "פאץ' טורניר שהופסק", "Retired competition badge"),
+    priceIls: 6,
+    active: false,
+    sortOrder: 70,
+  },
 ];
 
-/* ── Size charts (placeholder measurements — spec §11) ────────────────────── */
-const NOTE = L(
-  "قياسات أولية للعرض فقط — سيتم تأكيد الجداول النهائية قبل الإطلاق. المقاسات قد تختلف بين أنواع المنتجات.",
-  "מידות ראשוניות לתצוגה בלבד — הטבלאות הסופיות יאושרו לפני ההשקה. המידות עשויות להשתנות בין סוגי מוצרים.",
-  "Preliminary measurements for display only — final charts will be confirmed before launch. Sizing may vary between product types.",
+
+/* ── Cart promotions ───────────────────────────────────────────────────────
+   The Buy-2 campaign, seeded DISABLED exactly as it ships to production. The
+   owner turns it on from Admin → Promotions; nothing is discounted until
+   they do. Dates are left open so enabling it is the only step needed. */
+export const demoPromotions: PromotionConfig[] = [
+  {
+    id: "second-item-15",
+    type: "second_item_percentage",
+    enabled: false,
+    discountPercent: 15,
+    minimumQuantity: 2,
+    repeatPerPair: true,
+    stackWithProductSales: false,
+    label: L(
+      "اشترِ قطعتين واحصل على خصم 15% على القطعة الثانية",
+      "קנו 2 וקבלו 15% הנחה על הפריט השני",
+      "Buy 2, get 15% off the second item",
+    ),
+    sortOrder: 10,
+  },
+];
+
+/* ── Size charts ───────────────────────────────────────────────────────────
+   Fan / Player / Kids / Training suit come from the supplier-confirmed
+   module. Retro, long sleeve and hoodie have NOT been confirmed: their
+   legacy rows are preserved but explicitly flagged preliminary so they are
+   never presented as confirmed measurements. */
+const PRELIM_NOTE = L(
+  "قياسات أولية بانتظار تأكيد المورد لهذا النوع من المنتجات. للمساعدة في اختيار المقاس راسلنا على واتساب.",
+  "מידות ראשוניות הממתינות לאישור הספק עבור סוג מוצר זה. לעזרה בבחירת מידה כתבו לנו בוואטסאפ.",
+  "Preliminary measurements awaiting supplier confirmation for this product type. Message us on WhatsApp for sizing help.",
 );
 
-function chart(id: string, name: ReturnType<typeof L>, rows: [string, number, number][]): SizeChart {
-  return { id, name, note: NOTE, rows: rows.map(([size, chestCm, lengthCm]) => ({ size, chestCm, lengthCm })), isPlaceholder: true };
+function prelimChart(id: string, name: ReturnType<typeof L>, rows: [string, number, number][]): SizeChart {
+  return {
+    id,
+    name,
+    note: PRELIM_NOTE,
+    columns: [
+      { key: "lengthCm", labelKey: "sizeGuide.colJerseyLength", unit: "cm" },
+      { key: "legacyChestCm", labelKey: "sizeGuide.colLegacyChest", unit: "cm" },
+    ],
+    rows: rows.map(([size, chestCm, lengthCm]) => ({
+      size,
+      values: { lengthCm: { min: lengthCm }, legacyChestCm: { min: chestCm } },
+      chestCm,
+      lengthCm,
+    })),
+    confirmation: "preliminary",
+    isPlaceholder: true,
+  };
 }
 
 export const demoSizeCharts: SizeChart[] = [
-  chart("fan", L("نسخة المشجع", "גרסת אוהד", "Fan version"), [["S", 104, 69], ["M", 110, 71], ["L", 116, 73], ["XL", 122, 75], ["2XL", 128, 77]]),
-  chart("player", L("نسخة اللاعب (قصّة ضيقة)", "גרסת שחקן (גזרה צמודה)", "Player version (athletic cut)"), [["S", 96, 68], ["M", 102, 70], ["L", 108, 72], ["XL", 114, 74], ["2XL", 120, 76]]),
-  chart("retro", L("ريترو", "רטרו", "Retro"), [["S", 106, 70], ["M", 112, 72], ["L", 118, 74], ["XL", 124, 76], ["2XL", 130, 78]]),
-  chart("long-sleeve", L("أكمام طويلة", "שרוול ארוך", "Long sleeve"), [["S", 104, 69], ["M", 110, 71], ["L", 116, 73], ["XL", 122, 75], ["2XL", 128, 77]]),
-  chart("hoodie", L("هودي", "הודי", "Hoodie"), [["S", 112, 68], ["M", 118, 70], ["L", 124, 72], ["XL", 130, 74], ["2XL", 136, 76]]),
-  chart("kids", L("أطفال", "ילדים", "Kids"), [["16", 66, 46], ["18", 70, 49], ["20", 74, 52], ["22", 78, 55], ["24", 82, 58], ["26", 86, 61], ["28", 90, 64]]),
+  ...CONFIRMED_SIZE_CHARTS,
+  prelimChart("retro", L("ريترو", "רטרו", "Retro"), [["S", 106, 70], ["M", 112, 72], ["L", 118, 74], ["XL", 124, 76], ["2XL", 130, 78]]),
+  prelimChart("long-sleeve", L("أكمام طويلة", "שרוול ארוך", "Long sleeve"), [["S", 104, 69], ["M", 110, 71], ["L", 116, 73], ["XL", 122, 75], ["2XL", 128, 77]]),
+  prelimChart("hoodie", L("هودي", "הודי", "Hoodie"), [["S", 112, 68], ["M", 118, 70], ["L", 124, 72], ["XL", 130, 74], ["2XL", 136, 76]]),
 ];
 
 /* ── Shipping zones (placeholder pricing within the ₪35–55 band, §12) ─────── */
@@ -158,6 +247,34 @@ interface P {
   status?: Product["status"];
   tags?: string[];
   related?: string[];
+  /** Days ago the demo owner "checked" with the supplier. Controlled test
+   * value only — never seeded into production and never a real confirmation. */
+  confirmedDaysAgo?: number;
+  /** Explicit badge settings, or `"legacy"` to keep the pre-0004 `patchIds`
+   * shape so the read-time upgrade stays exercised. */
+  badges?: ProductBadgeSetting[] | "legacy";
+  /** Sale configuration. Demo fixtures use controlled relative dates so the
+   * three states (active / scheduled / expired) are always demonstrable;
+   * they are never seeded into production. */
+  sale?: SaleConfig;
+  /** Which of the two presentation images this fixture carries, so every
+   * fallback path is exercised by the demo store itself:
+   *   default     — styled preview + real photograph + a detail shot
+   *   "styledOnly"— presentation image only, labelled, no switch
+   *   "realOnly"  — photograph only
+   *   "untagged"  — pre-existing rows: images that make no claim at all */
+  media?: "styledOnly" | "realOnly" | "untagged";
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysFromNow = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
+
+/** Badge options a demo product offers when it has no explicit setting:
+ * every active catalog option, each at the global price. Kits with no
+ * personalization (kids sets, training suits) offer none. */
+function defaultBadgeSettings(p: P): ProductBadgeSetting[] {
+  if (p.personal === false) return [];
+  return demoBadges.filter((b) => b.active).map((b) => ({ badgeId: b.id, enabled: true }));
 }
 
 const DETAILS = L(
@@ -165,6 +282,29 @@ const DETAILS = L(
   "בד פוליאסטר נושם • תפירה נקייה • מיוצר לפי הזמנה • מומלץ כביסה קרה וללא מייבש.",
   "Breathable polyester fabric • clean stitching • made to order • cold wash recommended, no tumble dry.",
 );
+
+/**
+ * Demo media. The styled render and the flat-lay photograph are ordinary
+ * gallery entries carrying a role — styled first, so `images[0]` stays the
+ * cover for cart lines, order snapshots and prerendered metadata.
+ */
+function productImages(p: P, name: LocalizedText): Product["images"] {
+  const styled = { src: `/demo/p-${p.slug}.webp`, alt: name, role: "styled" as const };
+  const real = {
+    src: `/demo/p-${p.slug}-real.webp`,
+    alt: { ar: `${name.ar} — صورة المنتج الحقيقية`, he: `${name.he} — המוצר האמיתי`, en: `${name.en} — Real Product` },
+    role: "real" as const,
+  };
+  const detail = {
+    src: `/demo/p-${p.slug}-b.webp`,
+    alt: { ar: `${name.ar} — تفاصيل`, he: `${name.he} — פרטים`, en: `${name.en} — detail` },
+  };
+  if (p.media === "styledOnly") return [styled, detail];
+  if (p.media === "realOnly") return [real, detail];
+  // Rows saved before this feature existed: no roles, no labels, no switch.
+  if (p.media === "untagged") return [{ src: styled.src, alt: name }, detail];
+  return [styled, real, detail];
+}
 
 function product(p: P, i: number): Product {
   const name = {
@@ -186,22 +326,35 @@ function product(p: P, i: number): Product {
     versions: p.versions ?? [],
     sleeves: p.sleeves ?? ["short"],
     longSleeveAdjustmentIls: p.lsAdj ?? 0,
-    sizes: p.sizes ?? ADULT_SIZES,
+    // Sizes follow the product type's confirmed rule set (fan reaches 3XL);
+    // 4XL stays opt-in per product and is never added automatically.
+    sizes: p.sizes ?? [...SIZE_RULES[chartIdFor({ kids: p.kids ?? false, categorySlug: p.cat, tags: p.tags ?? [] }, p.versions?.[0]?.version)].default],
     personalizable: p.personal ?? true,
-    patchIds: p.personal === false ? [] : ["league-patch", "cup-patch", "champions-patch"],
+    // `patchIds` is the legacy field. Products carry explicit `badges`
+    // settings instead, except the one deliberately left on the old shape so
+    // the read-time upgrade path stays covered by the demo store itself.
+    patchIds: p.badges === "legacy" ? ["league-patch", "cup-patch"] : [],
+    ...(p.badges === "legacy" ? {} : { badges: p.badges ?? defaultBadgeSettings(p) }),
+    allowNoBadge: true,
+    // The regular price above is never rewritten by a sale.
+    ...(p.sale ? { sale: p.sale } : {}),
     era: p.era,
     season: p.season,
     nationalTeam: p.national ?? false,
     kids: p.kids ?? false,
     qualifiesForFreeDelivery: true,
     featured: p.featured ?? false,
-    images: [
-      { src: `/demo/p-${p.slug}.webp`, alt: name },
-      { src: `/demo/p-${p.slug}-b.webp`, alt: { ar: `${name.ar} — تفاصيل`, he: `${name.he} — פרטים`, en: `${name.en} — detail` } },
-    ],
+    images: productImages(p, name),
     relatedSlugs: p.related ?? [],
     tags: p.tags ?? [],
     rightsStatus: "cleared",
+    // Publication is not supplier confirmation. Products carry an explicit
+    // dated confirmation only where the demo owner checked; everything else
+    // stays `confirmation_required`, exactly like the real catalog.
+    availability:
+      p.confirmedDaysAgo === undefined
+        ? { status: "confirmation_required" }
+        : { status: "available", lastCheckedAt: new Date(Date.now() - p.confirmedDaysAgo * 24 * 60 * 60 * 1000).toISOString() },
     isDemo: true,
     createdAt: new Date(2026, 5, 1 + i).toISOString(),
   };
@@ -217,6 +370,18 @@ export const demoProducts: Product[] = [
     era: "2000s",
     featured: true,
     related: ["royal-1998", "amber-2001", "midnight-longsleeve"],
+    confirmedDaysAgo: 2,
+    // Product-level price override: this shirt's Champions League badge is
+    // sourced differently and costs ₪12 instead of the global ₪10.
+    badges: [
+      { badgeId: "league-patch", enabled: true },
+      { badgeId: "cup-patch", enabled: true },
+      { badgeId: "champions-patch", enabled: true },
+      { badgeId: "ucl-badge", enabled: true, priceOverrideIls: 12 },
+      { badgeId: "club-world-cup-badge", enabled: false },
+      { badgeId: "national-tournament-badge", enabled: true },
+      { badgeId: "retired-badge", enabled: true },
+    ],
   }, 0),
   product({
     slug: "royal-1998",
@@ -227,10 +392,24 @@ export const demoProducts: Product[] = [
     era: "1990s",
     featured: true,
     related: ["crimson-2005", "emerald-2007"],
+    // Deliberately left on the pre-0004 shape (patchIds, no `badges`) so the
+    // legacy upgrade path is exercised by the running store, not only tests.
+    badges: "legacy",
   }, 1),
   product({
     slug: "emerald-2007",
     cat: "retro",
+    // Scheduled, announced in advance: the customer sees a truthful start
+    // date and the regular price — never a discounted figure ahead of time.
+    sale: {
+      enabled: true,
+      type: "fixed_amount",
+      amountOffIls: 25,
+      startsAt: daysFromNow(7),
+      endsAt: daysFromNow(21),
+      showBeforeStart: true,
+      label: L("عرض لفترة محدودة", "מבצע לזמן מוגבל", "Limited-time offer"),
+    },
     name: L("الزمردي، حقبة 2007", "האמרלד, עידן 2007", "Emerald Third, 2007 Era"),
     desc: L("طقم ثالث نادر — أخضر زمردي بلمسات ذهبية.", "מדים שלישיים נדירים — ירוק אמרלד עם נגיעות זהב.", "A rare third kit — emerald green with gold accents."),
     price: 170,
@@ -240,6 +419,16 @@ export const demoProducts: Product[] = [
   product({
     slug: "amber-2001",
     cat: "retro",
+    // Expired: configuration is retained, but nothing is discounted and no
+    // sale badge appears. The regular price returned on its own.
+    sale: {
+      enabled: true,
+      type: "percentage",
+      percentOff: 15,
+      startsAt: daysFromNow(-30),
+      endsAt: daysFromNow(-2),
+      autoPercentLabel: true,
+    },
     name: L("الكهرماني، حقبة 2001", "הענברי, עידן 2001", "Amber Classic, 2001 Era"),
     desc: L("برتقالي كهرماني جريء من مطلع الألفية.", "כתום ענברי נועז מתחילת שנות ה־2000.", "Bold amber orange from the turn of the millennium."),
     price: 170,
@@ -249,6 +438,15 @@ export const demoProducts: Product[] = [
   product({
     slug: "onyx-home",
     cat: "current-season",
+    // Active percentage sale. The regular ₪140 below is untouched by it.
+    sale: {
+      enabled: true,
+      type: "percentage",
+      percentOff: 20,
+      startsAt: daysFromNow(-3),
+      endsAt: daysFromNow(10),
+      autoPercentLabel: true,
+    },
     name: L("أونيكس الأساسي 25/26", "אוניקס בית 25/26", "Onyx Home 25/26"),
     desc: L("أسود عميق بخطوط ذهبية — طقم هذا الموسم الأساسي.", "שחור עמוק עם פסי זהב — מדי הבית של העונה.", "Deep black with gold pinstripes — this season's home kit."),
     price: 140,
@@ -259,9 +457,11 @@ export const demoProducts: Product[] = [
     season: "25/26",
     featured: true,
     related: ["ivory-away", "graphite-player"],
+    confirmedDaysAgo: 2,
   }, 4),
   product({
     slug: "ivory-away",
+    media: "styledOnly",
     cat: "current-season",
     name: L("العاجي الاحتياطي 25/26", "השנהב חוץ 25/26", "Ivory Away 25/26"),
     desc: L("أبيض عاجي نظيف بتفاصيل رمادية — طقم خارج الأرض.", "לבן שנהב נקי עם פרטים אפורים — מדי החוץ.", "Clean ivory white with slate details — the away kit."),
@@ -289,6 +489,7 @@ export const demoProducts: Product[] = [
   }, 6),
   product({
     slug: "scarlet-national",
+    media: "realOnly",
     cat: "national-teams",
     name: L("القرمزي — منتخب، احتياطي", "השני — נבחרת, חוץ", "Scarlet National Away"),
     desc: L("أحمر قانٍ بقصّة حديثة — للمدرجات وللشارع.", "אדום עז בגזרה מודרנית — ליציע ולרחוב.", "Vivid scarlet in a modern cut — for the stands and the street."),
@@ -306,6 +507,7 @@ export const demoProducts: Product[] = [
     versions: [{ version: "player", adjustmentIls: 0 }],
     season: "24/25",
     related: ["onyx-home"],
+    confirmedDaysAgo: 30,
   }, 8),
   product({
     slug: "classic-white-fan",
@@ -319,6 +521,7 @@ export const demoProducts: Product[] = [
   }, 9),
   product({
     slug: "midnight-longsleeve",
+    sale: { enabled: true, type: "fixed_price", salePriceIls: 149, startsAt: daysFromNow(-1), endsAt: daysFromNow(14), label: L("تخفيض", "מבצע", "Sale") },
     cat: "long-sleeve",
     name: L("منتصف الليل — أكمام طويلة، حقبة 2003", "חצות — שרוול ארוך, עידן 2003", "Midnight Long Sleeve, 2003 Era"),
     desc: L("لياليّ الشتاء الأوروبية — كحلي منتصف الليل بأكمام كاملة.", "לילות חורף אירופיים — כחול חצות עם שרוול מלא.", "European winter nights — midnight navy with full sleeves."),
@@ -335,9 +538,11 @@ export const demoProducts: Product[] = [
     price: 250,
     personal: false,
     related: ["cream-hoodie"],
+    confirmedDaysAgo: 2,
   }, 11),
   product({
     slug: "cream-hoodie",
+    media: "untagged",
     cat: "hoodies",
     name: L("هودي كريمي", "הודי קרם", "Cream Terrace Hoodie"),
     desc: L("كريمي دافئ بتطريز ذهبي — أناقة المدرجات.", "קרם חם עם רקמת זהב — אלגנטיות היציע.", "Warm cream with gold embroidery — terrace elegance."),
@@ -355,6 +560,7 @@ export const demoProducts: Product[] = [
     kids: true,
     versions: [{ version: "kids", adjustmentIls: 0 }],
     related: ["cobalt-kids"],
+    confirmedDaysAgo: 2,
   }, 13),
   product({
     slug: "cobalt-kids",
@@ -376,6 +582,7 @@ export const demoProducts: Product[] = [
     era: "2000s",
     status: "unavailable",
     related: ["crimson-2005"],
+    confirmedDaysAgo: 2,
   }, 15),
 ];
 
@@ -412,7 +619,7 @@ export const demoOrders: Order[] = [
     locale: "ar",
     customer: { name: "Demo Customer", email: "demo@crowned.example", phone: "0500000000", city: "حيفا", address: "شارع تجريبي 1", customerId: "cust-demo" },
     items: [
-      { productId: "demo-crimson-2005", slug: "crimson-2005", title: demoProducts[0]!.name, image: "/demo/p-crimson-2005.webp", size: "L", personalization: { name: "AHMAD", number: "7" }, patchId: "champions-patch", patchName: demoPatches[2]!.name, unitPriceIls: 175, quantity: 1, lineTotalIls: 175 },
+      { productId: "demo-crimson-2005", slug: "crimson-2005", title: demoProducts[0]!.name, image: "/demo/p-crimson-2005.webp", size: "L", personalization: { name: "AHMAD", number: "7" }, badge: { badgeId: "champions-patch", code: "champions", name: demoBadges[2]!.name, label: demoBadges[2]!.name.en, priceIls: 5, supplierReference: "SUP-BDG-CHAMP" }, patchId: "champions-patch", patchName: demoBadges[2]!.name, unitPriceIls: 175, quantity: 1, lineTotalIls: 175 },
       { productId: "demo-royal-1998", slug: "royal-1998", title: demoProducts[1]!.name, image: "/demo/p-royal-1998.webp", size: "M", unitPriceIls: 170, quantity: 2, lineTotalIls: 340 },
     ],
     subtotalIls: 515,
@@ -502,6 +709,8 @@ export const demoSettings: StoreSettings = {
   whatsappNumber: "972500000000",
   instagramUsername: "crowned.demo",
   freeDeliveryMinItems: 3,
+  // Schedules are entered and displayed in this zone; stored values are UTC.
+  timezone: "Asia/Jerusalem",
   supplierEtaText: L("التوصيل خلال ١٠–١٤ يومًا تقريبًا من لحظة شحن المورّد", "משלוח כ־10–14 ימים ממועד שילוח הספק", "Delivery in ~10–14 days from supplier dispatch"),
   bankTransferInstructions: L(
     "تفاصيل الحساب البنكي ستُرسل إليك برسالة تأكيد الطلب. يُشحن الطلب بعد التحقق من الدفع. (نص مبدئي — بانتظار تفاصيل الحساب الفعلية)",

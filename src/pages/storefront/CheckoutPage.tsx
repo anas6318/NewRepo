@@ -15,6 +15,8 @@ import { Field } from "../../components/product/ReviewsSection.tsx";
 import { FreeDeliveryProgress } from "../../components/product/FreeDeliveryProgress.tsx";
 import { EmptyState, Price, useL } from "../../components/ui/bits.tsx";
 import { IconBag } from "../../components/ui/Icons.tsx";
+import { formatBadgeAdjustment } from "../../lib/badges.ts";
+import { PromotionLine } from "../../components/cart/PromotionSummary.tsx";
 
 const checkoutSchema = s.object({
   name: s.string().trim().min(2).max(60),
@@ -111,7 +113,8 @@ export function CheckoutPage() {
         sleeve: l.sleeve,
         size: l.size,
         personalization: l.personalization,
-        patchId: l.patchId,
+        // Only the badge id is sent. The server resolves the price itself.
+        badgeId: l.badge?.badgeId ?? l.patchId,
         quantity: l.quantity,
       })),
       marketingConsent: consent,
@@ -283,17 +286,25 @@ export function CheckoutPage() {
                   </p>
                   <p className="text-xs text-muted">
                     {[
-                      line.version,
+                      // Translated, never the raw enum — the summary must not
+                      // mix English into an Arabic or Hebrew page.
+                      line.version
+                        ? t(`product.version${line.version === "fan" ? "Fan" : line.version === "player" ? "Player" : line.version === "kids" ? "Kids" : "Retro"}`)
+                        : null,
                       line.sleeve === "long" ? t("product.sleeveLong") : null,
                       line.size,
                       line.personalization ? `${line.personalization.name ?? ""} ${line.personalization.number ?? ""}`.trim() : null,
-                      line.patchName ? L(line.patchName) : null,
+                      line.badge ? `${L(line.badge.name)} ${formatBadgeAdjustment(line.badge.priceIls)}`.trim() : line.patchName ? L(line.patchName) : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
                 </div>
-                <Price ils={line.unitPriceIls * line.quantity} className="text-sm" />
+                <Price
+                  ils={line.unitPriceIls * line.quantity}
+                  compareIls={line.price && line.price.saleDiscountIls > 0 ? line.price.regularUnitPriceIls * line.quantity : undefined}
+                  className="text-sm"
+                />
               </li>
             ))}
           </ul>
@@ -303,6 +314,7 @@ export function CheckoutPage() {
             <span className="text-muted">{t("cart.subtotal")}</span>
             <Price ils={cart.subtotalIls} />
           </div>
+          <PromotionLine promotion={cart.promotion} />
           <div className="row row--between text-sm">
             <span className="text-muted">{t("cart.delivery")}</span>
             {cart.freeDelivery.isFreeDeliveryUnlocked ? (
@@ -315,7 +327,7 @@ export function CheckoutPage() {
           </div>
           <div className="row row--between" style={{ fontSize: "var(--fs-lg)", fontWeight: 800 }}>
             <span>{t("cart.total")}</span>
-            <Price ils={cart.subtotalIls + (deliveryIls ?? 0)} />
+            <Price ils={cart.merchandiseTotalIls + (deliveryIls ?? 0)} />
           </div>
           <p className="text-xs text-muted">{t("checkout.hiddenFeesNote")}</p>
           <button type="submit" className="btn btn--gold btn--lg btn--block" disabled={submitting}>

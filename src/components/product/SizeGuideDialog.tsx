@@ -3,15 +3,26 @@ import { useI18n } from "../../lib/i18n/index.tsx";
 import { dataService } from "../../services/index.ts";
 import { track } from "../../lib/analytics.ts";
 import type { SizeChart } from "../../services/types.ts";
+import type { UnitSystem } from "../../services/sizing.ts";
 import { useL } from "../ui/bits.tsx";
 import { IconClose, IconRuler } from "../ui/Icons.tsx";
+import { SizeChartTable, SizeMeasuringHelp, UnitToggle } from "./SizeChartTable.tsx";
 
-export function SizeGuideDialog({ chartId, trigger }: { chartId: string; trigger?: string }) {
+export function SizeGuideDialog({
+  chartId,
+  trigger,
+  /** Sizes this product offers that the supplier has not measured yet. */
+  unconfirmedSizes = [],
+}: {
+  chartId: string;
+  trigger?: string;
+  unconfirmedSizes?: string[];
+}) {
   const { t } = useI18n();
   const L = useL();
   const [open, setOpen] = useState(false);
   const [chart, setChart] = useState<SizeChart | null>(null);
-  const [inches, setInches] = useState(false);
+  const [system, setSystem] = useState<UnitSystem>("metric");
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -29,8 +40,6 @@ export function SizeGuideDialog({ chartId, trigger }: { chartId: string; trigger
     return () => document.removeEventListener("keydown", onKey);
   }, [open, chartId]);
 
-  const cm = (v: number) => (inches ? (v / 2.54).toFixed(1) : v);
-
   return (
     <>
       <button type="button" className="btn btn--ghost btn--sm" onClick={() => setOpen(true)}>
@@ -47,39 +56,12 @@ export function SizeGuideDialog({ chartId, trigger }: { chartId: string; trigger
                 <IconClose />
               </button>
             </div>
-            {chart?.isPlaceholder && <p className="badge badge--warn mb-4">{t("sizeGuide.placeholderNote")}</p>}
-            <div className="row mb-4" style={{ gap: "var(--sp-2)" }}>
-              <button type="button" className={`chip${!inches ? " is-selected" : ""}`} aria-pressed={!inches} onClick={() => setInches(false)}>
-                {t("sizeGuide.cm")}
-              </button>
-              <button type="button" className={`chip${inches ? " is-selected" : ""}`} aria-pressed={inches} onClick={() => setInches(true)}>
-                {t("sizeGuide.inches")}
-              </button>
+            <div className="stack">
+              <UnitToggle system={system} onChange={setSystem} />
+              {chart && <SizeChartTable chart={chart} system={system} unconfirmedSizes={unconfirmedSizes} />}
+              {chart && <p className="text-xs text-muted">{L(chart.note)}</p>}
+              <SizeMeasuringHelp />
             </div>
-            {chart && (
-              <div className="table-wrap">
-                <table className="table" style={{ minWidth: 0 }}>
-                  <caption className="sr-only">{L(chart.name)}</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">{t("product.size")}</th>
-                      <th scope="col">{t("sizeGuide.chest")}</th>
-                      <th scope="col">{t("sizeGuide.length")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chart.rows.map((row) => (
-                      <tr key={row.size}>
-                        <td className="num" style={{ fontWeight: 700 }}>{row.size}</td>
-                        <td className="num">{cm(row.chestCm)}</td>
-                        <td className="num">{cm(row.lengthCm)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {chart && <p className="text-xs text-muted mt-4">{L(chart.note)}</p>}
           </div>
         </div>
       )}

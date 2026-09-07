@@ -6,6 +6,8 @@ import { track } from "../../lib/analytics.ts";
 import { FreeDeliveryProgress } from "../../components/product/FreeDeliveryProgress.tsx";
 import { EmptyState, Price, useL } from "../../components/ui/bits.tsx";
 import { IconBag, IconMinus, IconPlus, IconTrash } from "../../components/ui/Icons.tsx";
+import { formatBadgeAdjustment } from "../../lib/badges.ts";
+import { PromotionLine, PromotionProgress } from "../../components/cart/PromotionSummary.tsx";
 
 export function CartPage() {
   const { locale, t } = useI18n();
@@ -55,7 +57,7 @@ export function CartPage() {
                       line.sleeve === "long" ? t("product.sleeveLong") : null,
                       `${t("product.size")}: ${line.size}`,
                       line.personalization?.name || line.personalization?.number ? `${line.personalization?.name ?? ""} ${line.personalization?.number ?? ""}`.trim() : null,
-                      line.patchName ? L(line.patchName) : null,
+                      line.badge ? `${L(line.badge.name)} ${formatBadgeAdjustment(line.badge.priceIls)}`.trim() : line.patchName ? L(line.patchName) : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -71,7 +73,25 @@ export function CartPage() {
                       </button>
                     </div>
                     <div className="row">
-                      <Price ils={line.unitPriceIls * line.quantity} />
+                      <div className="stack" style={{ gap: 2, alignItems: "flex-end" }}>
+                        <Price
+                          ils={line.unitPriceIls * line.quantity - (cart.promotion?.discountByLineKey[line.key] ?? 0)}
+                          compareIls={
+                            (cart.promotion?.discountByLineKey[line.key] ?? 0) > 0
+                              ? line.unitPriceIls * line.quantity
+                              : line.price && line.price.saleDiscountIls > 0
+                                ? line.price.regularUnitPriceIls * line.quantity
+                                : undefined
+                          }
+                        />
+                        {/* The promotion is named on the line that received
+                            it, so the reduced figure is never unexplained. */}
+                        {(cart.promotion?.discountByLineKey[line.key] ?? 0) > 0 && (
+                          <span className="promo-line__amount text-xs">
+                            {t("promotion.summaryLabel")} −<Price ils={cart.promotion!.discountByLineKey[line.key]!} className="text-xs" />
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
                         className="icon-btn cart-line__remove"
@@ -97,6 +117,8 @@ export function CartPage() {
             <span className="text-muted">{t("cart.subtotal")}</span>
             <Price ils={cart.subtotalIls} />
           </div>
+          <PromotionLine promotion={cart.promotion} />
+          <PromotionProgress promotion={cart.promotion} />
           <div className="row row--between text-sm">
             <span className="text-muted">{t("cart.delivery")}</span>
             <span className="text-muted">{cart.freeDelivery.isFreeDeliveryUnlocked ? t("cart.freeDeliveryUnlocked") : t("cart.deliveryAtCheckout")}</span>

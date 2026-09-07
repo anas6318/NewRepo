@@ -35,7 +35,37 @@ const lines = [
 ];
 
 for (const c of seed.demoCategories) lines.push(`insert into public.categories (id, data) values (${q(c.slug)}, ${j(c)});`);
-for (const p of seed.demoPatches) lines.push(`insert into public.patches (id, active, data) values (${q(p.id)}, ${p.active}, ${j(p)});`);
+// Badge options. The base insert only uses columns that exist from 0001, so
+// this file stays runnable straight after 0002. The internal supplier
+// reference lives in the `supplier_ref` column added by 0004 (it is never put
+// in the publicly readable jsonb), so it is filled in a guarded block that
+// simply does nothing when the seed runs before that migration.
+for (const b of seed.demoBadges) {
+  const publicData = { ...b };
+  delete publicData.supplierReference;
+  lines.push(`insert into public.patches (id, active, data) values (${q(b.id)}, ${b.active}, ${j(publicData)});`);
+}
+const withRefs = seed.demoBadges.filter((b) => b.supplierReference);
+if (withRefs.length) {
+  lines.push("do $$", "begin", "  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='patches' and column_name='supplier_ref') then");
+  for (const b of withRefs) {
+    lines.push(`    update public.patches set supplier_ref = ${q(b.supplierReference)}, sort_order = ${b.sortOrder} where id = ${q(b.id)};`);
+  }
+  lines.push("  end if;", "end $$;");
+}
+// Cart promotions live in their own table, created by migration 0006. This
+// file is runnable straight after 0002, so the insert is guarded and simply
+// does nothing when the seed runs before that migration. Seeded exactly as
+// they ship: disabled until the owner enables them.
+if (seed.demoPromotions.length) {
+  lines.push("do $$", "begin", "  if to_regclass('public.promotions') is not null then");
+  for (const p of seed.demoPromotions) {
+    lines.push(
+      `    insert into public.promotions (id, enabled, sort_order, data) values (${q(p.id)}, ${p.enabled}, ${p.sortOrder}, ${j(p)}) on conflict (id) do nothing;`,
+    );
+  }
+  lines.push("  end if;", "end $$;");
+}
 for (const s of seed.demoSizeCharts) lines.push(`insert into public.size_charts (id, data) values (${q(s.id)}, ${j(s)});`);
 for (const z of seed.demoZones) lines.push(`insert into public.shipping_zones (id, active, data) values (${q(z.id)}, ${z.active}, ${j(z)});`);
 for (const p of seed.demoProducts) {

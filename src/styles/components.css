@@ -234,7 +234,9 @@
 .form-grid {
   display: grid;
   gap: var(--sp-5);
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  /* min() keeps the 230px track from forcing the page wider than a 320px
+     viewport — below that width the grid simply collapses to one column. */
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
 }
 
 .form-grid .field--full {
@@ -307,6 +309,69 @@
   color: var(--warn);
 }
 
+/* On the narrowest phones every admin row wraps rather than pushing the page
+   sideways. The admin is a desktop tool, but a horizontal scrollbar on a
+   320px screen is still a defect. */
+@media (max-width: 420px) {
+  .admin .row {
+    flex-wrap: wrap;
+  }
+
+  .admin .tabs {
+    flex-wrap: wrap;
+  }
+
+  /* Long descriptive admin button labels ("Reconfirm availability with
+     supplier", "Remove sale (keeps the regular price)") wrap instead of
+     setting the page's minimum width. */
+  .admin .btn {
+    white-space: normal;
+  }
+}
+
+/* Sale label. Deliberately quiet — the brand palette, not a shouting red
+   sticker — and it sits in the badge stack rather than over the shirt. */
+.badge--sale {
+  background: var(--ink-900);
+  color: var(--gold-300, var(--gold-500));
+  border: 1px solid var(--gold-500);
+}
+
+/* Only needed where the badge sits inline after running text; flex badge
+   stacks and rows already space it with their own gap. */
+.badge--inline {
+  margin-inline-start: 0.4em;
+}
+
+/* ── Cart promotion ──────────────────────────────────────────────────────
+   The saving is shown on its own row rather than hidden inside the
+   subtotal, and the note beside it states only what is already true. */
+.promo-line__label {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.promo-line__amount {
+  color: var(--ok);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1em;
+  /* Keeps "−₪18" together as one left-to-right run inside RTL text. */
+  unicode-bidi: isolate;
+}
+
+.promo-note {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.promo-note--on {
+  color: var(--ok);
+  font-weight: 600;
+}
+
 .badge--err {
   background: var(--err-bg);
   color: var(--err);
@@ -335,6 +400,15 @@
 
 .chip:hover:not(:disabled) {
   border-color: var(--accent);
+}
+
+/* Price adjustment inside an option chip (badge/patch). The logical margin
+   keeps it clear of the name in both LTR and RTL, where the isolated "+₪10"
+   run sits on the opposite side of the label. */
+.chip__meta {
+  margin-inline-start: 0.4em;
+  font-weight: 500;
+  opacity: 0.75;
 }
 
 .chip.is-selected {
@@ -405,6 +479,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-2);
+  /* Stops short of the wishlist button (38px + its inset + a gap) so a card
+     carrying demo + sale + status badges wraps instead of sliding underneath
+     it. The stack stays in the frame's corner, clear of the shirt. */
+  max-inline-size: calc(100% - 38px - var(--sp-3) * 2 - var(--sp-2));
 }
 
 .prod-card__wish {
@@ -1044,4 +1122,296 @@
 
 .crumbs .sep {
   opacity: 0.5;
+}
+
+/* ── Size chart ──────────────────────────────────────────────────────────
+   Table on wide screens, stacked cards on narrow ones. Both are always in
+   the DOM; only one is displayed, so nothing is ever clipped and the page
+   never scrolls horizontally. Logical properties keep RTL correct. */
+.size-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.size-chart__notice {
+  align-self: flex-start;
+}
+
+.size-chart__table {
+  display: none;
+}
+
+.size-chart__size {
+  font-weight: 800;
+  text-align: start;
+  white-space: nowrap;
+}
+
+/* Keep the size column readable while the rest scrolls on mid widths. */
+.size-chart__table .table th:first-child,
+.size-chart__table .table td:first-child {
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--bg-raised);
+}
+
+.size-chart__cards {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.size-chart__card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-raised);
+  padding: var(--sp-4);
+}
+
+.size-chart__card-size {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-lg);
+  margin-block-end: var(--sp-2);
+}
+
+.size-chart__card dl {
+  margin: 0;
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.size-chart__pair {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  font-size: var(--fs-sm);
+  padding-block: 2px;
+  border-block-end: 1px solid var(--line);
+}
+
+.size-chart__pair:last-child {
+  border-block-end: none;
+}
+
+.size-chart__pair dt {
+  color: var(--fg-muted);
+}
+
+.size-chart__pair dd {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.size-chart__unconfirmed,
+.availability-note {
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  background: var(--warn-bg);
+  border-inline-start: 3px solid var(--warn);
+  border-radius: var(--r-sm);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.size-chart__steps {
+  padding-inline-start: 1.2em;
+  margin: 0;
+  display: grid;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+@media (min-width: 721px) {
+  .size-chart__table {
+    display: block;
+  }
+
+  .size-chart__cards {
+    display: none;
+  }
+}
+
+/* Sizes the supplier has confirmed as unavailable stay visible and
+   announced, but cannot be selected. */
+.chip.is-disabled,
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* ── Styled Preview ⇄ Real Product ───────────────────────────────────────
+   Both views share ONE frame: two absolutely-positioned images crossfading
+   in place, so nothing reflows and the card never changes height while the
+   customer switches. The global prefers-reduced-motion rule in base.css
+   already neutralises the fade; the explicit rule below documents it. */
+.media-stack {
+  position: absolute;
+  inset: 0;
+}
+
+.media-stack > .media-stack__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  /* No transform here: switching must never zoom or pan the shirt. */
+  transition: opacity var(--t-med) var(--ease);
+}
+
+.media-stack > .media-stack__img.is-on {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-stack > .media-stack__img {
+    transition: none;
+  }
+}
+
+/* The card's existing hover zoom is suppressed where hover also switches the
+   image — a swap and a scale at the same time reads as a glitch. */
+.prod-card--dual:hover .prod-card__frame img {
+  transform: none;
+}
+
+.media-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 1px;
+  padding: 2px;
+  border-radius: var(--r-pill);
+  background: rgba(11, 11, 13, 0.58);
+  border: 1px solid rgba(246, 244, 239, 0.10);
+  backdrop-filter: blur(6px);
+  max-inline-size: 100%;
+}
+
+.media-toggle__opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-inline-size: 0;
+  padding: 4px 9px;
+  border-radius: var(--r-pill);
+  color: rgba(246, 244, 239, 0.55);
+  font-size: 0.6875rem;
+  letter-spacing: 0.01em;
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+  transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+
+.media-toggle__opt:hover {
+  color: var(--paper);
+}
+
+/* Active: a restrained gold accent and stronger text — no fill, no bounce. */
+.media-toggle__opt.is-on {
+  color: var(--paper);
+  background: rgba(198, 163, 85, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(198, 163, 85, 0.5);
+}
+
+.media-toggle__opt svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.media-toggle__short {
+  display: none;
+}
+
+.media-toggle--page {
+  padding: 4px;
+}
+
+.media-toggle--page .media-toggle__opt {
+  padding: 7px 14px;
+  font-size: var(--fs-sm);
+  gap: 6px;
+}
+
+/* Names a lone styled/real image, where there is nothing to switch to. */
+.media-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: var(--r-pill);
+  background: rgba(11, 11, 13, 0.62);
+  border: 1px solid rgba(246, 244, 239, 0.12);
+  backdrop-filter: blur(6px);
+  color: rgba(246, 244, 239, 0.82);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.media-label--page {
+  padding: 6px 13px;
+  font-size: var(--fs-sm);
+  color: var(--paper);
+}
+
+/* Card overlay: sits inside the bottom of the image frame, so the card's
+   height is identical whether or not a product has both views. */
+.prod-card__frame {
+  container-type: inline-size;
+}
+
+.prod-card__cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.prod-card__media-ui {
+  position: absolute;
+  inset-inline: var(--sp-3);
+  inset-block-end: var(--sp-3);
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  /* Only the control itself is clickable; the rest of the frame keeps
+     falling through to the stretched product link. */
+  pointer-events: none;
+}
+
+.prod-card__media-ui > * {
+  pointer-events: auto;
+}
+
+/* Very narrow cards (a tighter grid than the current one) fall back to the
+   compact wording rather than overflowing. The accessible name stays the
+   full term either way. */
+@container (max-width: 215px) {
+  .media-toggle--card .media-toggle__opt {
+    padding: 5px 7px;
+    gap: 4px;
+  }
+
+  .media-toggle--card .media-toggle__full {
+    display: none;
+  }
+
+  .media-toggle--card .media-toggle__short {
+    display: inline;
+  }
+}
+
+@container (max-width: 160px) {
+  .media-toggle--card .media-toggle__opt svg {
+    display: none;
+  }
 }

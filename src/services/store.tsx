@@ -12,10 +12,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CartLine, Customer, Product, ShippingZone, StoreSettings } from "./types.ts";
+import type { CartLine, Customer, Product, PromotionConfig, ShippingZone, StoreSettings } from "./types.ts";
 import { dataService } from "./index.ts";
 import { cartSubtotal } from "../lib/pricing.ts";
 import { evaluateFreeDelivery, freeDeliveryMessage, type FreeDeliveryResult } from "../lib/delivery.ts";
+import { merchandiseUnitValue, resolvePromotion, type PromotionLine, type PromotionResult } from "../lib/promotions.ts";
 
 /* ── Toasts ──────────────────────────────────────────────────────────────── */
 interface Toast {
@@ -39,7 +40,16 @@ const CART_KEY = "crowned_cart_v1";
 export interface CartState {
   lines: CartLine[];
   count: number;
+  /** Sum of the line totals, before any cart promotion. */
   subtotalIls: number;
+  /** Cart promotion as it currently stands. Present whenever a campaign is
+   * running, even when the basket does not qualify yet, so the cart can show
+   * a truthful "add one more" message. Display only — order creation
+   * recomputes it server-side. */
+  promotion?: PromotionResult;
+  promotionDiscountIls: number;
+  /** Subtotal minus the promotion discount. */
+  merchandiseTotalIls: number;
   freeDelivery: FreeDeliveryResult;
   fdMessage: ReturnType<typeof freeDeliveryMessage>;
   minItems: number;
@@ -64,7 +74,16 @@ function loadCart(): CartLine[] {
 }
 
 export function lineKey(line: Omit<CartLine, "key">): string {
-  return [line.productId, line.version ?? "", line.sleeve ?? "", line.size, line.personalization?.name ?? "", line.personalization?.number ?? "", line.patchId ?? ""].join("|");
+  return [
+    line.productId,
+    line.version ?? "",
+    line.sleeve ?? "",
+    line.size,
+    line.personalization?.name ?? "",
+    line.personalization?.number ?? "",
+    // Two lines differing only by badge are distinct products to the buyer.
+    line.badge?.badgeId ?? line.patchId ?? "",
+  ].join("|");
 }
 
 export function useCart(): CartState {
@@ -131,8 +150,13 @@ export function StoreProviders({ children }: { children: ReactNode }) {
   /* settings */
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [zones, setZones] = useState<ShippingZone[]>([]);
+  const [promotions, setPromotions] = useState<PromotionConfig[]>([]);
   useEffect(() => {
     let alive = true;
+    dataService()
+      .listPromotions()
+      .then((p) => alive && setPromotions(p))
+      .catch(() => undefined);
     dataService()
       .getSettings()
       .then((s) => alive && setSettings(s))
@@ -183,10 +207,30 @@ export function StoreProviders({ children }: { children: ReactNode }) {
       lines.map((l) => ({ countsForFreeDelivery: l.qualifiesForFreeDelivery, quantity: l.quantity })),
       minItems,
     );
+    // Promotion preview for the cart UI only. The browser clock drives what
+    // is displayed; order creation re-resolves everything server-side and
+    // its result is what the customer is actually charged.
+    const promotionLines: PromotionLine[] = lines.map((l) => ({
+      lineKey: l.key,
+      productId: l.productId,
+      slug: l.slug,
+      title: l.title,
+      ...(l.categorySlug ? { categorySlug: l.categorySlug } : {}),
+      quantity: l.quantity,
+      // Merchandise only — the badge charge never participates.
+      merchandiseUnitIls: merchandiseUnitValue(l.price, l.unitPriceIls, l.badge?.priceIls ?? 0),
+      hasProductSale: (l.price?.saleDiscountIls ?? 0) > 0,
+    }));
+    const promotion = resolvePromotion(promotions, promotionLines);
+    const promotionDiscountIls = promotion?.discountIls ?? 0;
+    const merchandiseTotalIls = Math.round((subtotalIls - promotionDiscountIls + Number.EPSILON) * 100) / 100;
     return {
       lines,
       count: lines.reduce((s, l) => s + l.quantity, 0),
       subtotalIls,
+      ...(promotion ? { promotion } : {}),
+      promotionDiscountIls,
+      merchandiseTotalIls,
       freeDelivery: fd,
       fdMessage: freeDeliveryMessage(fd),
       minItems,
@@ -209,7 +253,7 @@ export function StoreProviders({ children }: { children: ReactNode }) {
       drawerOpen,
       setDrawerOpen,
     };
-  }, [lines, drawerOpen, minItems]);
+  }, [lines, drawerOpen, minItems, promotions]);
 
   /* wishlist */
   const [wishSlugs, setWishSlugs] = useState<string[]>(() => {
@@ -304,8 +348,8 @@ export function buildCartLine(
     sleeve?: CartLine["sleeve"];
     size: string;
     personalization?: CartLine["personalization"];
-    patchId?: string;
-    patchName?: CartLine["patchName"];
+    badge?: CartLine["badge"];
+    price?: CartLine["price"];
     unitPriceIls: number;
     quantity: number;
   },
@@ -313,14 +357,17 @@ export function buildCartLine(
   return {
     productId: product.id,
     slug: product.slug,
+    categorySlug: product.categorySlug,
     title: product.name,
     image: product.images[0]?.src ?? "",
     version: opts.version,
     sleeve: opts.sleeve,
     size: opts.size,
     personalization: opts.personalization,
-    patchId: opts.patchId,
-    patchName: opts.patchName,
+    // `patchId`/`patchName` mirror the snapshot so anything still reading the
+    // pre-0004 fields (a cart persisted before this release) keeps working.
+    ...(opts.badge ? { badge: opts.badge, patchId: opts.badge.badgeId, patchName: opts.badge.name } : {}),
+    ...(opts.price ? { price: opts.price } : {}),
     unitPriceIls: opts.unitPriceIls,
     quantity: opts.quantity,
     qualifiesForFreeDelivery: product.qualifiesForFreeDelivery,

@@ -1,3 +1,4 @@
-slug,name_en,name_ar,name_he,desc_en,desc_ar,desc_he,category,price_ils,supplier_sku,supplier_ref,supplier_cost_usd,personalizable
-example-retro-2004,Example Retro 2004,مثال ريترو 2004,דוגמה רטרו 2004,Short English description,وصف قصير,תיאור קצר,retro,170,SUP-SKU-001,ALI-REF-9,19,true
-example-hoodie,Example Hoodie,مثال هودي,דוגמה הודי,Warm football hoodie,هودي دافئ,הודי חם,hoodies,250,SUP-SKU-002,ALI-REF-10,24,false
+slug,name_en,name_ar,name_he,desc_en,desc_ar,desc_he,category,price_ils,sizes,badge_codes,badge_price_overrides,supplier_sku,supplier_ref,supplier_cost_usd,personalizable
+example-home-2526,Example Home 25/26,مثال قميص أساسي 25/26,דוגמה חולצת בית 25/26,Example description,وصف تجريبي,תיאור לדוגמה,current-season,140,S|M|L|XL|2XL|3XL,league|ucl,ucl:12,SKU-1234,ALBUM-REF,16,true
+example-player-2526,Example Player 25/26,مثال نسخة اللاعب 25/26,דוגמה גרסת שחקן 25/26,Example description,وصف تجريبي,תיאור לדוגמה,player-version,170,S|M|L|XL|2XL,league|ucl|club_world_cup,,SKU-1235,ALBUM-REF,19,true
+example-kids-kit,Example Kids Kit,مثال طقم أطفال,דוגמה סט ילדים,Example description,وصف تجريبي,תיאור לדוגמה,kids,120,16|18|20|22|24|26|28,,,SKU-1236,ALBUM-REF,14,false

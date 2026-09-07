@@ -41,7 +41,7 @@ export function Footer() {
       <div className="container">
         <div className="site-footer__grid">
           <div className="site-footer__brand">
-            <img src="/brand/logo-white.svg" alt="CROWNED" width={170} height={43} />
+            <img src="/brand/crowned-logo-white.png" alt="CROWNED" width={200} height={26} />
             <p className="text-muted text-sm" style={{ maxWidth: "34ch" }}>
               {t("meta.tagline")}
             </p>

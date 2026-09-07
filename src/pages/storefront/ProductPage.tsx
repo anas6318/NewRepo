@@ -1,5 +1,7 @@
-/** Product page (spec §29): conditional options, free name/number, ₪5
- * patches, dynamic pricing, size guide, reviews, related products. */
+/** Product page (spec §29): conditional options, free name/number,
+ * owner-configured badge options, dynamic pricing, size guide, reviews,
+ * related products. Badge names and prices are always data — nothing about
+ * which badges exist or what they cost is hard-coded here. */
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "../../lib/router.tsx";
 import { useI18n } from "../../lib/i18n/index.tsx";
@@ -7,15 +9,20 @@ import { usePageMeta, breadcrumbJsonLd, productJsonLd } from "../../lib/seo.tsx"
 import { dataService } from "../../services/index.ts";
 import { buildCartLine, useCart, useSettings, useToast, useWishlist } from "../../services/store.tsx";
 import { track } from "../../lib/analytics.ts";
-import { priceLine } from "../../lib/pricing.ts";
+import { priceLine, priceSnapshot } from "../../lib/pricing.ts";
+import { discountableAmount, isDiscounting, priceValidUntil, resolveSale } from "../../lib/sales.ts";
+import { activePromotion, isEligibleProduct } from "../../lib/promotions.ts";
 import { whatsappLink } from "../../lib/whatsapp.ts";
-import type { JerseyVersion, PatchDef, Product, SleeveStyle } from "../../services/types.ts";
+import type { BadgeOption, JerseyVersion, Product, PromotionConfig, SleeveStyle } from "../../services/types.ts";
+import { allowsNoBadge, badgeSnapshot, resolveProductBadges } from "../../lib/badges.ts";
+import { chartIdFor, resolveAvailability, SIZE_RULES, sizeOptionsFor, type SizeChartId } from "../../services/sizing.ts";
 import { Gallery } from "../../components/product/Gallery.tsx";
+import { coverImage } from "../../lib/media.ts";
 import { SizeGuideDialog } from "../../components/product/SizeGuideDialog.tsx";
 import { ReviewsSection, Field } from "../../components/product/ReviewsSection.tsx";
 import { ProductCard } from "../../components/product/ProductCard.tsx";
 import { Breadcrumbs } from "../../components/layout/Breadcrumbs.tsx";
-import { DemoBadge, Price, StatusBadge, useL } from "../../components/ui/bits.tsx";
+import { DemoBadge, Price, SaleBadge, StatusBadge, useL } from "../../components/ui/bits.tsx";
 import { IconBag, IconHeart, IconMinus, IconPlus, IconWhatsApp } from "../../components/ui/Icons.tsx";
 import { NotFoundPage } from "./ErrorPages.tsx";
 
@@ -29,7 +36,8 @@ export function ProductPage({ slug }: { slug: string }) {
   const { settings } = useSettings();
 
   const [product, setProduct] = useState<Product | null | undefined>(undefined);
-  const [patches, setPatches] = useState<PatchDef[]>([]);
+  const [badgeCatalog, setBadgeCatalog] = useState<BadgeOption[]>([]);
+  const [promotions, setPromotions] = useState<PromotionConfig[]>([]);
   const [related, setRelated] = useState<Product[]>([]);
 
   /* selection state */
@@ -38,7 +46,7 @@ export function ProductPage({ slug }: { slug: string }) {
   const [size, setSize] = useState<string>("");
   const [customName, setCustomName] = useState("");
   const [customNumber, setCustomNumber] = useState("");
-  const [patchId, setPatchId] = useState<string>("");
+  const [badgeId, setBadgeId] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
   const [spellingOk, setSpellingOk] = useState(false);
   const [sizeOk, setSizeOk] = useState(false);
@@ -52,17 +60,24 @@ export function ProductPage({ slug }: { slug: string }) {
     setSize("");
     setCustomName("");
     setCustomNumber("");
-    setPatchId("");
+    setBadgeId("");
     setQuantity(1);
     setSpellingOk(false);
     setSizeOk(false);
     setAttempted(false);
-    Promise.all([dataService().getProduct(slug), dataService().listPatches()])
-      .then(([p, pats]) => {
+    dataService()
+      .listPromotions()
+      .then((list) => alive && setPromotions(list))
+      .catch(() => undefined);
+    Promise.all([dataService().getProduct(slug), dataService().listBadges()])
+      .then(([p, badges]) => {
         if (!alive) return;
         setProduct(p);
-        setPatches(pats);
+        setBadgeCatalog(badges);
         if (p) {
+          // The owner may preselect an option; otherwise "no badge" wins.
+          if (p.defaultBadgeId && badges.some((b) => b.id === p.defaultBadgeId && b.active)) setBadgeId(p.defaultBadgeId);
+          else if (!allowsNoBadge(p)) setBadgeId(resolveProductBadges(p, badges)[0]?.id ?? "");
           track("view_item", { item_id: p.slug, price: p.basePriceIls });
           if (p.versions.length === 1) setVersion(p.versions[0]?.version);
           if (p.sleeves.length === 1) setSleeve(p.sleeves[0]);
@@ -84,29 +99,39 @@ export function ProductPage({ slug }: { slug: string }) {
     };
   }, [slug]);
 
-  const availablePatches = useMemo(() => patches.filter((p) => p.active && (product?.patchIds.includes(p.id) ?? false)), [patches, product]);
-  const selectedPatch = availablePatches.find((p) => p.id === patchId);
+  // Only options the owner enabled for THIS product, at THIS product's price
+  // (override first, global default otherwise). Inactive options are absent
+  // from the list entirely, so they can never be selected.
+  const availableBadges = useMemo(() => (product ? resolveProductBadges(product, badgeCatalog) : []), [badgeCatalog, product]);
+  const selectedBadge = availableBadges.find((b) => b.id === badgeId);
+  const noBadgeAllowed = product ? allowsNoBadge(product) : true;
   const personalized = customName.trim() !== "" || customNumber.trim() !== "";
 
-  const priced = useMemo(() => {
+  /** Sale resolved against THIS configuration. The browser clock only drives
+   * display; order creation re-resolves against the server's own clock. */
+  const priceInput = useMemo(() => {
     if (!product) return null;
-    const adjustments: number[] = [];
-    if (version) {
-      const v = product.versions.find((x) => x.version === version);
-      if (v) adjustments.push(v.adjustmentIls);
-    }
-    if (sleeve === "long" && product.sleeves.length > 1) adjustments.push(product.longSleeveAdjustmentIls);
+    const versionAdjustmentIls = version ? (product.versions.find((x) => x.version === version)?.adjustmentIls ?? 0) : 0;
+    const adjustmentsIls: number[] = [];
+    if (sleeve === "long" && product.sleeves.length > 1) adjustmentsIls.push(product.longSleeveAdjustmentIls);
+    const badgePriceIls = selectedBadge?.priceIls ?? 0;
+    const includeAddOns = product.sale?.includeAddOns === true;
+    const discountable = discountableAmount({ basePriceIls: product.basePriceIls, versionAdjustmentIls, optionAdjustmentsIls: adjustmentsIls, badgePriceIls }, includeAddOns);
+    const sale = resolveSale(product.sale, discountable);
+    return { basePriceIls: product.basePriceIls, versionAdjustmentIls, adjustmentsIls, badgePriceIls, sale, quantity };
+  }, [product, version, sleeve, selectedBadge, quantity]);
+
+  const sale = priceInput?.sale;
+  const onSale = isDiscounting(sale);
+
+  const priced = useMemo(() => {
+    if (!priceInput) return null;
     try {
-      return priceLine({
-        basePriceIls: product.basePriceIls,
-        adjustmentsIls: adjustments,
-        patchPriceIls: selectedPatch?.priceIls ?? 0,
-        quantity,
-      });
+      return priceLine(priceInput);
     } catch {
       return null;
     }
-  }, [product, version, sleeve, selectedPatch, quantity]);
+  }, [priceInput]);
 
   const title = product ? L(product.name) : "";
   usePageMeta({
@@ -114,13 +139,13 @@ export function ProductPage({ slug }: { slug: string }) {
     description: product ? L(product.seoDescription) || L(product.description) : undefined,
     path: `/product/${slug}`,
     locale,
-    ogImage: product?.images[0]?.src,
+    ogImage: product ? coverImage(product)?.src : undefined,
     jsonLd: product
       ? [
           productJsonLd({
             name: title,
             description: L(product.description),
-            image: product.images[0]?.src ?? "",
+            image: coverImage(product)?.src ?? "",
             priceIls: product.basePriceIls,
             slug: product.slug,
             locale,
@@ -153,11 +178,23 @@ export function ProductPage({ slug }: { slug: string }) {
   }
   if (product === null) return <NotFoundPage />;
 
-  const unavailable = product.status === "unavailable";
+  /* ── Supplier availability (product → version → size) ── */
+  const sizeOptions = sizeOptionsFor(product, version);
+  const selected = resolveAvailability(product, version, size || undefined);
+  const discontinued = selected.status === "discontinued";
+  const unavailable = product.status === "unavailable" || discontinued || (!!size && selected.status === "unavailable");
+  /** Nothing is reserved or produced until the supplier confirms. */
+  const needsConfirmation = selected.status === "confirmation_required";
+  /** Offered sizes the supplier has not measured (e.g. Fan 4XL). */
+  const unmeasured = SIZE_RULES[chartIdFor(product, version) as SizeChartId]
+    ? sizeOptions.filter((o) => o.availability.measurementsUnconfirmed).map((o) => o.size)
+    : [];
 
   const validate = (): string | null => {
     if (product.versions.length > 1 && !version) return t("errors.selectVersion");
     if (!size) return t("errors.selectSize");
+    if (selected.status === "unavailable" || selected.status === "discontinued") return t("availability.sizeUnavailable");
+    if (!noBadgeAllowed && !selectedBadge) return t("errors.selectBadge");
     if (personalized && !spellingOk) return t("errors.confirmSpelling");
     if (!sizeOk) return t("errors.confirmSize");
     if (customNumber && !/^\d{1,2}$/.test(customNumber.trim())) return t("errors.invalidNumber");
@@ -179,8 +216,10 @@ export function ProductPage({ slug }: { slug: string }) {
         sleeve,
         size,
         personalization: personalized ? { name: customName.trim() || undefined, number: customNumber.trim() || undefined } : undefined,
-        patchId: patchId || undefined,
-        patchName: selectedPatch?.name,
+        badge: selectedBadge ? badgeSnapshot(selectedBadge, locale) : undefined,
+        // Displayed breakdown. The server recomputes it at order creation and
+        // its result is what the order actually stores.
+        price: priceInput ? priceSnapshot(priceInput, priced, locale, priceValidUntil(sale)) : undefined,
         unitPriceIls: priced.unitPriceIls,
         quantity,
       }),
@@ -196,10 +235,22 @@ export function ProductPage({ slug }: { slug: string }) {
     }
   };
 
+  /** The campaign in force that this product participates in, if any. */
+  const runningPromotion = (() => {
+    const promo = activePromotion(promotions);
+    if (!promo) return undefined;
+    return isEligibleProduct(promo, { productId: product.id, slug: product.slug, categorySlug: product.categorySlug }) ? promo : undefined;
+  })();
+
+  const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+  /** Sale boundaries read as a date and a time — never as a ticking clock. */
+  const formatWhen = (iso: string, loc: string) =>
+    new Date(iso).toLocaleString(loc === "en" ? "en-GB" : loc === "he" ? "he-IL" : "ar", { dateStyle: "medium", timeStyle: "short" });
+
   const versionLabel = (v: JerseyVersion) =>
     v === "fan" ? t("product.versionFan") : v === "player" ? t("product.versionPlayer") : v === "kids" ? t("nav.kids") : t("nav.retro");
 
-  const chartId = product.kids ? "kids" : product.categorySlug === "hoodies" ? "hoodie" : product.categorySlug === "long-sleeve" ? "long-sleeve" : version === "player" ? "player" : product.categorySlug === "retro" ? "retro" : "fan";
+  const chartId = chartIdFor(product, version);
 
   return (
     <main id="main" className="container section--tight section">
@@ -215,13 +266,44 @@ export function ProductPage({ slug }: { slug: string }) {
         <div className="product-panel stack">
           <div className="row row--wrap" style={{ gap: "var(--sp-2)" }}>
             {product.isDemo && <DemoBadge />}
-            <StatusBadge status={product.status} />
+            {/* Catalog presence is not inventory. While a supplier check is
+                pending the availability badge replaces the status badge, so
+                the page never shows an "available" claim beside it. */}
+            {needsConfirmation ? (
+              <span className="badge badge--warn">{t("availability.awaitingConfirmation")}</span>
+            ) : (
+              <StatusBadge status={product.status} />
+            )}
           </div>
           <h1 className="product-title">{title}</h1>
-          <div className="row">
-            {priced && <Price ils={priced.unitPriceIls} compareIls={product.compareAtPriceIls} className="product-price" />}
+          <div className="row row--wrap">
+            {/* When a sale is running, the struck-through figure is the
+                product's real configured regular price for this exact
+                selection — never an inflated reference price. */}
+            {priced && (
+              <Price
+                ils={priced.unitPriceIls}
+                compareIls={onSale ? priced.regularUnitPriceIls : product.compareAtPriceIls}
+                className="product-price"
+              />
+            )}
+            {sale && <SaleBadge sale={sale} />}
             <span className="text-xs text-muted">{t("product.priceUpdatesNote")}</span>
           </div>
+          {sale?.status === "scheduled" && sale.startsAt && (
+            <p className="text-xs text-muted">
+              {t("sale.startsOn", { date: formatWhen(sale.startsAt, locale) })}
+            </p>
+          )}
+          {onSale && sale?.endsAt && (
+            <p className="text-xs text-muted">
+              {t("sale.endsOn", { date: formatWhen(sale.endsAt, locale) })}
+            </p>
+          )}
+          {/* A running cart promotion this product participates in. Phrased as
+              a condition on a second item — it never implies THIS item is
+              already reduced, because on its own it is not. */}
+          {runningPromotion && <p className="promo-note">{L(runningPromotion.label)}</p>}
           <p className="text-muted">{L(product.description)}</p>
 
           {/* version */}
@@ -267,20 +349,45 @@ export function ProductPage({ slug }: { slug: string }) {
               <span>
                 {t("product.size")} <span className="req">*</span>
               </span>
-              <SizeGuideDialog chartId={chartId} />
+              <SizeGuideDialog chartId={chartId} unconfirmedSizes={unmeasured} />
             </legend>
             <div className="row row--wrap" style={{ gap: "var(--sp-2)" }}>
-              {product.sizes.map((sz) => (
-                <button key={sz} type="button" className={`chip${size === sz ? " is-selected" : ""}`} aria-pressed={size === sz} onClick={() => setSize(sz)}>
-                  {sz}
-                </button>
-              ))}
+              {sizeOptions.map((opt) => {
+                const off = opt.availability.status === "unavailable" || opt.availability.status === "discontinued";
+                return (
+                  <button
+                    key={opt.size}
+                    type="button"
+                    className={`chip${size === opt.size ? " is-selected" : ""}${off ? " is-disabled" : ""}`}
+                    aria-pressed={size === opt.size}
+                    disabled={off}
+                    aria-label={off ? `${opt.size} — ${t("availability.sizeUnavailable")}` : undefined}
+                    onClick={() => setSize(opt.size)}
+                  >
+                    {opt.size}
+                  </button>
+                );
+              })}
             </div>
             {attempted && !size && (
               <p className="field__error" role="alert">
                 {t("errors.selectSize")}
               </p>
             )}
+            {/* Honest availability messaging for the selected version + size */}
+            {size && needsConfirmation && (
+              <p className="availability-note" role="status">
+                {selected.measurementsUnconfirmed
+                  ? t("availability.sizeMeasurementsUnconfirmed", { size })
+                  : t("availability.confirmAfterRequest")}
+              </p>
+            )}
+            {size && selected.status === "unavailable" && (
+              <p className="field__error" role="status">
+                {t("availability.sizeUnavailable")}
+              </p>
+            )}
+            {!size && <p className="text-xs text-muted">{t("availability.variesBySize")}</p>}
             {settings?.whatsappNumber && (
               <a
                 className="text-sm text-gold"
@@ -329,20 +436,31 @@ export function ProductPage({ slug }: { slug: string }) {
             </fieldset>
           )}
 
-          {/* patch */}
-          {availablePatches.length > 0 && (
+          {/* badge / patch — options and prices come entirely from the
+              owner-managed catalog plus this product's own settings */}
+          {availableBadges.length > 0 && (
             <fieldset className="field">
-              <legend className="field__label">{t("product.patch")}</legend>
+              <legend className="field__label">{t("product.badge")}</legend>
               <div className="row row--wrap" style={{ gap: "var(--sp-2)" }}>
-                <button type="button" className={`chip${patchId === "" ? " is-selected" : ""}`} aria-pressed={patchId === ""} onClick={() => setPatchId("")}>
-                  {t("product.patchNone")}
-                </button>
-                {availablePatches.map((p) => (
-                  <button key={p.id} type="button" className={`chip${patchId === p.id ? " is-selected" : ""}`} aria-pressed={patchId === p.id} onClick={() => setPatchId(p.id)}>
-                    {L(p.name)} <bdi>+₪{p.priceIls}</bdi>
+                {noBadgeAllowed && (
+                  <button type="button" className={`chip${badgeId === "" ? " is-selected" : ""}`} aria-pressed={badgeId === ""} onClick={() => setBadgeId("")}>
+                    {t("product.badgeNone")}
+                  </button>
+                )}
+                {availableBadges.map((b) => (
+                  <button key={b.id} type="button" className={`chip${badgeId === b.id ? " is-selected" : ""}`} aria-pressed={badgeId === b.id} onClick={() => setBadgeId(b.id)}>
+                    {L(b.name)}{" "}
+                    {b.priceIls > 0 ? (
+                      <bdi className="chip__meta" dir="ltr">
+                        +₪{b.priceIls}
+                      </bdi>
+                    ) : (
+                      <span className="chip__meta">{t("product.badgeIncluded")}</span>
+                    )}
                   </button>
                 ))}
               </div>
+              {selectedBadge?.description && <p className="text-xs text-muted">{L(selectedBadge.description)}</p>}
             </fieldset>
           )}
 
@@ -377,19 +495,27 @@ export function ProductPage({ slug }: { slug: string }) {
           <div className="product-actions" id="buy-actions">
             <div className="row row--between">
               <span className="text-sm text-muted">{t("product.priceTotal")}</span>
-              {priced && <Price ils={priced.lineTotalIls} className="product-price" />}
+              {priced && (
+                <Price ils={priced.lineTotalIls} compareIls={onSale ? round2(priced.regularUnitPriceIls * priced.quantity) : undefined} className="product-price" />
+              )}
             </div>
             {unavailable ? (
-              <p className="badge badge--muted">{t("product.temporarilyUnavailable")}</p>
+              <p className="badge badge--muted">
+                {discontinued ? t("availability.discontinued") : size && selected.status === "unavailable" ? t("availability.sizeUnavailable") : t("product.temporarilyUnavailable")}
+              </p>
             ) : (
               <>
                 <button type="button" className="btn btn--gold btn--lg btn--block" onClick={buyNow}>
-                  {product.status === "made_to_order" ? t("product.reserveJersey") : t("product.buyNow")}
+                  {needsConfirmation ? t("availability.requestJersey") : product.status === "made_to_order" ? t("product.reserveJersey") : t("product.buyNow")}
                 </button>
                 <button type="button" className="btn btn--dark btn--lg btn--block" onClick={addToCart}>
                   <IconBag size={18} /> {t("product.addToCart")}
                 </button>
-                {product.status === "made_to_order" && <p className="text-xs text-muted">{t("product.reserveNote")}</p>}
+                {needsConfirmation ? (
+                  <p className="text-xs text-muted">{t("availability.requestNote")}</p>
+                ) : (
+                  product.status === "made_to_order" && <p className="text-xs text-muted">{t("product.reserveNote")}</p>
+                )}
               </>
             )}
             <div className="row">
@@ -462,7 +588,7 @@ export function ProductPage({ slug }: { slug: string }) {
         <div className="sticky-buy show-sm-only">
           {priced && <Price ils={priced.lineTotalIls} />}
           <button type="button" className="btn btn--gold" onClick={buyNow}>
-            {product.status === "made_to_order" ? t("product.reserveJersey") : t("product.buyNow")}
+            {needsConfirmation ? t("availability.requestJersey") : product.status === "made_to_order" ? t("product.reserveJersey") : t("product.buyNow")}
           </button>
         </div>
       )}

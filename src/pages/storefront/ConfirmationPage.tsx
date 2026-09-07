@@ -7,6 +7,7 @@ import { useSettings } from "../../services/store.tsx";
 import type { Order } from "../../services/types.ts";
 import { Price, useL } from "../../components/ui/bits.tsx";
 import { IconCheck } from "../../components/ui/Icons.tsx";
+import { formatBadgeAdjustment } from "../../lib/badges.ts";
 
 export function ConfirmationPage({ orderNumber }: { orderNumber: string }) {
   const { locale, t } = useI18n();
@@ -60,11 +61,26 @@ export function ConfirmationPage({ orderNumber }: { orderNumber: string }) {
                   {item.personalization && (
                     <span className="text-muted"> — {`${item.personalization.name ?? ""} ${item.personalization.number ?? ""}`.trim()}</span>
                   )}
+                  {item.badge && (
+                    <span className="text-muted">
+                      {" · "}
+                      {L(item.badge.name)} {formatBadgeAdjustment(item.badge.priceIls)}
+                    </span>
+                  )}
+                  {item.price?.saleLabel && <span className="badge badge--sale badge--inline">{item.price.saleLabel}</span>}
                 </span>
-                <Price ils={item.lineTotalIls} />
+                <Price ils={item.lineTotalIls} compareIls={item.price && item.price.saleDiscountIls > 0 ? item.price.regularUnitPriceIls * item.quantity : undefined} />
               </li>
             ))}
           </ul>
+          {order.promotion && (
+            <div className="row row--between text-sm promo-line">
+              <span className="promo-line__label">{order.promotion.labelText}</span>
+              <span className="promo-line__amount">
+                −<Price ils={order.promotion.discountIls} />
+              </span>
+            </div>
+          )}
           <div className="row row--between text-sm">
             <span className="text-muted">{t("cart.delivery")}</span>
             {order.freeDelivery ? <span style={{ color: "var(--ok)", fontWeight: 700 }}>{t("checkout.free")}</span> : <Price ils={order.deliveryIls} />}
@@ -76,7 +92,31 @@ export function ConfirmationPage({ orderNumber }: { orderNumber: string }) {
         </div>
       )}
 
-      {isBank && settings && (
+      {/* Supplier-confirmation gate: no payment instructions are pushed while
+          availability is still unconfirmed. */}
+      {order?.supplierConfirmation?.required && order.supplierConfirmation.status === "pending" && (
+        <div className="card stack mt-6" style={{ borderColor: "var(--warn)" }}>
+          <h2 className="drawer__title">{t("availability.awaitingConfirmation")}</h2>
+          <p className="text-sm">{t("availability.requestReceived")}</p>
+          {/* Honest about the sale: a discounted price held for an
+              unconfirmed request is not promised indefinitely, and an
+              already-ended sale is not silently extended. */}
+          {(() => {
+            const held = order.items.map((i) => i.price?.priceValidUntil).filter((d): d is string => !!d);
+            const soonest = held.sort()[0];
+            if (soonest) {
+              return Date.parse(soonest) > Date.now() ? (
+                <p className="text-sm">{t("sale.priceHeldUntil", { date: new Date(soonest).toLocaleString(locale === "en" ? "en-GB" : locale === "he" ? "he-IL" : "ar") })}</p>
+              ) : (
+                <p className="text-sm">{t("sale.endedBeforeConfirmation")}</p>
+              );
+            }
+            return null;
+          })()}
+        </div>
+      )}
+
+      {isBank && settings && !(order?.supplierConfirmation?.required && order.supplierConfirmation.status === "pending") && (
         <div className="card stack mt-6" style={{ borderColor: "var(--gold-500)" }}>
           <h2 className="drawer__title">{t("checkout.bankTransferInfoTitle")}</h2>
           <p className="text-sm" style={{ whiteSpace: "pre-line" }}>

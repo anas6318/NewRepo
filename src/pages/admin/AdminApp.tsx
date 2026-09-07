@@ -16,7 +16,9 @@ import { DEMO_CREDENTIALS } from "../../services/demo/seed-data.ts";
 import type { Customer } from "../../services/types.ts";
 import { AdminDashboard } from "./AdminDashboard.tsx";
 import { AdminProducts, AdminProductEdit, AdminImport } from "./AdminCatalog.tsx";
+import { AdminBadges } from "./AdminBadges.tsx";
 import { AdminOrders, AdminOrderView } from "./AdminOrders.tsx";
+import { AdminPromotions } from "./AdminPromotions.tsx";
 import { AdminCustomers, AdminReviews } from "./AdminPeople.tsx";
 import { AdminShipping, AdminPayments, AdminTranslations, AdminSettings, AdminAudit } from "./AdminConfig.tsx";
 
@@ -33,6 +35,8 @@ export function AdminApp() {
 const NAV: { path: string; label: string; roles?: Customer["role"][] }[] = [
   { path: "/admin", label: "Dashboard" },
   { path: "/admin/products", label: "Products" },
+  { path: "/admin/badges", label: "Badge / patch options" },
+  { path: "/admin/promotions", label: "Promotions", roles: ["owner", "admin"] },
   { path: "/admin/imports", label: "Supplier import" },
   { path: "/admin/orders", label: "Orders" },
   { path: "/admin/customers", label: "Customers" },
@@ -86,7 +90,7 @@ function AdminLogin() {
   return (
     <main id="main" className="theme-dark" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--sp-5)" }}>
       <div style={{ width: "100%", maxWidth: 400 }} className="stack">
-        <img src="/brand/logo-white.svg" alt="CROWNED" width={170} height={43} style={{ alignSelf: "center" }} />
+        <img src="/brand/crowned-logo-white.png" alt="CROWNED" width={200} height={26} style={{ alignSelf: "center" }} />
         <h1 className="center-text" style={{ fontSize: "var(--fs-xl)" }}>
           Admin login
         </h1>
@@ -133,6 +137,8 @@ function AdminShell({ customer }: { customer: Customer }) {
     { path: "/admin", element: () => <AdminDashboard /> },
     { path: "/admin/products", element: () => <AdminProducts /> },
     { path: "/admin/products/:id", element: (p) => <AdminProductEdit id={p.id ?? ""} /> },
+    { path: "/admin/badges", element: () => <AdminBadges /> },
+    { path: "/admin/promotions", element: () => (customer.role === "owner" || customer.role === "admin" ? <AdminPromotions /> : <Forbidden />) },
     { path: "/admin/imports", element: () => <AdminImport /> },
     { path: "/admin/orders", element: () => <AdminOrders /> },
     { path: "/admin/orders/:orderNumber", element: (p) => <AdminOrderView orderNumber={p.orderNumber ?? ""} /> },
@@ -154,7 +160,7 @@ function AdminShell({ customer }: { customer: Customer }) {
       <div className="admin__frame">
         <aside className="admin__sidebar theme-dark">
           <Link to="/admin" className="admin__logo">
-            <img src="/brand/logo-white.svg" alt="CROWNED admin" width={130} height={33} />
+            <img src="/brand/crowned-logo-white.png" alt="CROWNED admin" width={154} height={20} />
           </Link>
           <nav className="admin__nav" aria-label="Admin">
             {NAV.filter(can).map((item) => (

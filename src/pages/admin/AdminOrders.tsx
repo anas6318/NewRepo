@@ -10,14 +10,18 @@ import type { FulfillmentStatus, Order, PaymentStatus } from "../../services/typ
 const PAYMENT_STATUSES: PaymentStatus[] = ["pending", "awaiting_payment", "authorized", "paid", "failed", "cancelled", "refunded", "partially_refunded", "under_review"];
 const FULFILLMENT_STATUSES: FulfillmentStatus[] = [
   "order_received",
+  "awaiting_supplier_confirmation",
+  "supplier_unavailable",
   "awaiting_payment",
   "payment_confirmed",
   "sent_to_supplier",
   "production_started",
   "supplier_processing",
+  "quality_inspection",
   "supplier_dispatched",
   "in_transit",
   "arrived_locally",
+  "ready_for_pickup",
   "out_for_delivery",
   "delivered",
   "issue_reported",
@@ -157,6 +161,7 @@ export function AdminOrderView({ orderNumber }: { orderNumber: string }) {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
   const [eta, setEta] = useState("");
+  const [supplierNote, setSupplierNote] = useState("");
   const toast = useToast();
   const { settings } = useSettings();
 
@@ -172,6 +177,7 @@ export function AdminOrderView({ orderNumber }: { orderNumber: string }) {
           setTrackingNumber(found.trackingNumber ?? "");
           setTrackingUrl(found.trackingUrl ?? "");
           setEta(found.estimatedDeliveryAt?.slice(0, 10) ?? "");
+          setSupplierNote(found.supplierConfirmation?.note ?? "");
         }
       })
       .catch((e) => toast.push(String(e), "error"));
@@ -240,12 +246,55 @@ export function AdminOrderView({ orderNumber }: { orderNumber: string }) {
                   {item.title.en} ×{item.quantity} — {item.size}
                   {item.version ? ` · ${item.version}` : ""}
                   {item.personalization ? ` · ${item.personalization.name ?? ""} ${item.personalization.number ?? ""}` : ""}
-                  {item.patchName ? ` · ${item.patchName.en}` : ""}
+                  {/* Snapshot taken when the order was placed — later badge
+                      edits never change what this order says or charged. */}
+                  {item.badge
+                    ? ` · Badge: ${item.badge.name.en} (+${formatPrice(item.badge.priceIls)}${item.badge.supplierReference ? `, supplier ref ${item.badge.supplierReference}` : ""})`
+                    : item.patchName
+                      ? ` · Badge: ${item.patchName.en}`
+                      : " · No badge"}
+                  {/* Frozen at order time — later sale edits never touch it. */}
+                  {item.price && item.price.saleDiscountIls > 0 && (
+                    <>
+                      {` · ${item.price.saleLabel ?? "Sale"}: ${item.price.saleType} ${item.price.saleValue}`}
+                      {` · was ${formatPrice(item.price.regularUnitPriceIls)}, −${formatPrice(item.price.saleDiscountIls)}/unit`}
+                      {item.price.saleEndsAt ? ` · sale ended ${new Date(item.price.saleEndsAt).toLocaleString("en-GB")}` : ""}
+                      {item.price.priceValidUntil ? ` · price guaranteed until ${new Date(item.price.priceValidUntil).toLocaleString("en-GB")}` : ""}
+                    </>
+                  )}
                 </span>
                 <span className="num">{formatPrice(item.lineTotalIls)}</span>
               </li>
             ))}
           </ul>
+          {/* Frozen at order time: exactly which unit received the promotion
+              and how much it saved. Later campaign edits never touch this. */}
+          {order.promotion && (
+            <div className="stack--sm stack" style={{ borderBlockStart: "1px solid var(--line)", paddingBlockStart: "var(--sp-3)" }}>
+              <div className="row row--between text-sm">
+                <span className="promo-line__label">{order.promotion.labelText}</span>
+                <span className="promo-line__amount num">−{formatPrice(order.promotion.discountIls)}</span>
+              </div>
+              <p className="text-xs text-muted">
+                {order.promotion.type} · {order.promotion.discountPercent}% off the cheaper item of every {order.promotion.minimumQuantity} ·{" "}
+                {order.promotion.repeatPerPair ? "repeating per pair" : "once only"} ·{" "}
+                {order.promotion.stackWithProductSales ? "stacking with product sales" : "not stacked with product sales"}
+                {order.promotion.startsAt ? ` · from ${new Date(order.promotion.startsAt).toLocaleString("en-GB")}` : ""}
+                {order.promotion.endsAt ? ` · until ${new Date(order.promotion.endsAt).toLocaleString("en-GB")}` : ""}
+              </p>
+              <p className="text-xs text-muted">
+                {order.promotion.eligibleUnits} eligible unit(s), {order.promotion.discountedUnits} discounted · merchandise{" "}
+                {formatPrice(order.promotion.originalMerchandiseIls)} → {formatPrice(order.promotion.finalMerchandiseIls)}
+              </p>
+              <ul className="text-xs" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {order.promotion.items.map((a, i) => (
+                  <li key={i}>
+                    Discounted: <strong>{a.title.en || a.slug}</strong> — merchandise {formatPrice(a.unitMerchandiseIls)}, saved {formatPrice(a.discountIls)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="row row--between text-sm">
             <span className="text-muted">Delivery</span>
             <span className="num">{order.freeDelivery ? "FREE" : formatPrice(order.deliveryIls)}</span>
@@ -256,6 +305,63 @@ export function AdminOrderView({ orderNumber }: { orderNumber: string }) {
           </div>
         </section>
       </div>
+
+      {order.supplierConfirmation?.required && (
+        <section className="card stack" aria-label="Supplier confirmation">
+          <div className="row row--between row--wrap">
+            <h2 className="drawer__title">Supplier confirmation</h2>
+            <span className={`badge ${order.supplierConfirmation.status === "confirmed" ? "badge--ok" : order.supplierConfirmation.status === "rejected" ? "badge--err" : "badge--warn"}`}>
+              {order.supplierConfirmation.status}
+            </span>
+          </div>
+          <p className="text-xs text-muted">
+            Nothing is reserved, ordered from the supplier or produced while this order is pending. Confirm only after the supplier actually replies.
+          </p>
+          <ul className="text-sm" style={{ listStyle: "none", padding: 0 }}>
+            {(order.supplierConfirmation.items ?? []).map((it, i) => (
+              <li key={i}>
+                <strong className="num">{it.slug}</strong> — {it.version ?? "any version"} / {it.size}
+              </li>
+            ))}
+          </ul>
+          <label className="field">
+            <span className="field__label">Internal supplier note (never shown to the customer)</span>
+            <textarea className="textarea" value={supplierNote} onChange={(e) => setSupplierNote(e.target.value)} />
+          </label>
+          {order.supplierConfirmation.status === "pending" ? (
+            <div className="row row--wrap">
+              <button
+                type="button"
+                className="btn btn--gold btn--sm"
+                onClick={() => void update({ supplierConfirmation: { ...order.supplierConfirmation!, status: "confirmed", note: supplierNote || undefined } })}
+              >
+                Confirm supplier availability
+              </button>
+              <button
+                type="button"
+                className="btn btn--outline btn--sm"
+                onClick={() => void update({ supplierConfirmation: { ...order.supplierConfirmation!, status: "rejected", note: supplierNote || undefined } })}
+              >
+                Mark supplier unavailable
+              </button>
+              <a
+                className="btn btn--outline btn--sm"
+                href={whatsappLink(order.customer.phone, order.locale, { intent: "general" })}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Offer another size / version / jersey on WhatsApp
+              </a>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">
+              {order.supplierConfirmation.status} by {order.supplierConfirmation.decidedBy ?? "—"}
+              {order.supplierConfirmation.decidedAt ? ` · ${new Date(order.supplierConfirmation.decidedAt).toLocaleString("en-GB")}` : ""}
+              {order.supplierConfirmation.status === "rejected" && " — offer an alternative size, version or jersey, or cancel the order."}
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="card stack" aria-label="Status management">
         <h2 className="drawer__title">Status</h2>
@@ -282,6 +388,10 @@ export function AdminOrderView({ orderNumber }: { orderNumber: string }) {
                 </option>
               ))}
             </select>
+            <span className="field__hint">
+              Saved immediately — the customer's Track Order timeline updates with it. Last updated:{" "}
+              {new Date(order.tracking[order.tracking.length - 1]?.at ?? order.createdAt).toLocaleString("en-GB")}
+            </span>
           </label>
         </div>
         <div className="form-grid">

@@ -33,8 +33,10 @@ let passed = 0;
 let failed = 0;
 const failures = [];
 
-async function newPage(viewport = { width: 1280, height: 900 }) {
-  const context = await browser.newContext({ viewport });
+async function newPage(viewport = { width: 1280, height: 900 }, contextOptions = {}) {
+  // Extra context options let a spec ask for a real touch device (hasTouch /
+  // isMobile), which is how hover-capability behaviour is exercised.
+  const context = await browser.newContext({ viewport, ...contextOptions });
   const page = await context.newPage();
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
   const pageErrors = [];

@@ -44,9 +44,18 @@
   --info: #2f5f7d;
   --info-bg: #e6eef3;
 
-  /* ── Typography ───────────────────────────────────────────────────────── */
-  --font-display: "Archivo", "Poppins", "Heebo", "Noto Kufi Arabic", "DejaVu Sans", system-ui, sans-serif;
-  --font-body: "Manrope", "Poppins", "Heebo", "Noto Sans Arabic", "DejaVu Sans", system-ui, sans-serif;
+  /* ── Typography ───────────────────────────────────────────────────────
+     Premium UI family per language (loaded in index.html, with full local
+     fallback stacks so the app stays correctly shaped offline):
+       en → Inter · ar → IBM Plex Sans Arabic · he → IBM Plex Sans Hebrew */
+  --font-display: "Inter", "Archivo", "Heebo", "Noto Kufi Arabic", "DejaVu Sans", system-ui, sans-serif;
+  --font-body: "Inter", "Manrope", "Heebo", "Noto Sans Arabic", "DejaVu Sans", system-ui, sans-serif;
+
+  /* Line-height scale — language blocks below retune these for scripts
+     with taller vertical rhythm (Arabic diacritics/ascenders). */
+  --lh-body: 1.6;
+  --lh-heading: 1.15;
+  --lh-display: 1.05;
 
   --fs-xs: 0.75rem;
   --fs-sm: 0.875rem;
@@ -156,17 +165,29 @@
 }
 
 /* Language-specific typography adjustments.
-   Arabic script must never receive letter-spacing (it breaks joining). */
+   Arabic script must never receive letter-spacing (it breaks joining), and
+   needs a taller vertical rhythm for its connected forms and diacritics.
+   font-synthesis-weight: none maps the design system's 800-weight headings
+   to IBM Plex's true 700 instead of an ugly faux-bold (Plex tops out at
+   700 in Arabic/Hebrew). */
 html[lang="ar"] {
-  --font-display: "Noto Kufi Arabic", "Noto Sans Arabic", "DejaVu Sans", system-ui, sans-serif;
-  --font-body: "Noto Sans Arabic", "Noto Kufi Arabic", "DejaVu Sans", system-ui, sans-serif;
+  --font-display: "IBM Plex Sans Arabic", "Noto Kufi Arabic", "Noto Sans Arabic", "DejaVu Sans", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Noto Kufi Arabic", "DejaVu Sans", system-ui, sans-serif;
   --track-eyebrow: 0;
   --track-display: 0;
+  --lh-body: 1.8;
+  --lh-heading: 1.4;
+  --lh-display: 1.35;
+  font-synthesis-weight: none;
 }
 
 html[lang="he"] {
-  --font-display: "Heebo", "FreeSans", "DejaVu Sans", system-ui, sans-serif;
-  --font-body: "Heebo", "FreeSans", "DejaVu Sans", system-ui, sans-serif;
-  --track-eyebrow: 0.06em;
+  --font-display: "IBM Plex Sans Hebrew", "Heebo", "FreeSans", "DejaVu Sans", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Hebrew", "Heebo", "FreeSans", "DejaVu Sans", system-ui, sans-serif;
+  --track-eyebrow: 0.05em;
   --track-display: 0;
+  --lh-body: 1.65;
+  --lh-heading: 1.25;
+  --lh-display: 1.18;
+  font-synthesis-weight: none;
 }

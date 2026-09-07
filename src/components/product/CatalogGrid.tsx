@@ -36,7 +36,6 @@ export function useCatalog(base: ProductFilters) {
     if (!f.sort) f.sort = (g("sort") as ProductFilters["sort"]) ?? "featured";
     if (g("sort")) f.sort = g("sort") as ProductFilters["sort"];
     return f;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- baseKey is the value identity of base
   }, [params, baseKey]);
 
   const filterKey = JSON.stringify(filters);

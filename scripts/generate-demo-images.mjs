@@ -117,6 +117,58 @@ function detailSvg([c1, c2, accent], w = 900, h = 1125) {
 </svg>`;
 }
 
+/**
+ * A deliberately plain "photograph" of the same jersey: flat lay on a light
+ * studio sweep, soft real-world shadow, no gold rim light and no CROWNED
+ * wordmark. Its background is meant to differ from the styled render — the
+ * real view is about authenticity, not visual uniformity.
+ */
+function realPhotoSvg([c1, c2, accent, style, long = false], w = 900, h = 1125) {
+  const sleeveLen = long || style === "hoodie" ? 300 : 130;
+  const kidsScale = style === "kids" ? 0.82 : 1;
+  const body = "M300 250 L360 210 Q450 260 540 210 L600 250 L600 940 Q450 985 300 940 Z";
+  const pattern =
+    style === "hoops"
+      ? `<g clip-path="url(#rbody)">${[0, 1, 2, 3, 4].map((i) => `<rect x="150" y="${330 + i * 120}" width="600" height="52" fill="${c2}"/>`).join("")}</g>`
+      : style === "stripes" || style === "pinstripes"
+        ? `<g clip-path="url(#rbody)">${[0, 1, 2, 3, 4, 5, 6].map((i) => `<rect x="${205 + i * 82}" y="220" width="${style === "pinstripes" ? 6 : 40}" height="720" fill="${style === "pinstripes" ? accent : c2}" opacity="${style === "pinstripes" ? 0.8 : 1}"/>`).join("")}</g>`
+        : "";
+  const hood = style === "hoodie" ? `<path d="M330 240 Q450 130 570 240 Q560 300 450 320 Q340 300 330 240 Z" fill="${c2}"/>` : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 900 1125">
+  <defs>
+    <linearGradient id="sweep" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#eceae5"/>
+      <stop offset="62%" stop-color="#e2dfd8"/>
+      <stop offset="100%" stop-color="#d3cfc6"/>
+    </linearGradient>
+    <radialGradient id="drop" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8d8a83" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#8d8a83" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="rbody"><path d="${body}"/></clipPath>
+  </defs>
+  <rect width="900" height="1125" fill="url(#sweep)"/>
+  <ellipse cx="470" cy="975" rx="300" ry="46" fill="url(#drop)"/>
+  <g transform="translate(450 575) scale(${kidsScale}) translate(-450 -575)">
+    <g transform="rotate(-1.4 450 575)">
+      <path d="${body}" fill="${c1}"/>
+      <path d="M300 250 L${180 - sleeveLen * 0.1} ${320 + sleeveLen * 0.35} L${225 - sleeveLen * 0.05} ${430 + sleeveLen} L300 ${380 + sleeveLen * 0.6} Z" fill="${c1}"/>
+      <path d="M600 250 L${720 + sleeveLen * 0.1} ${320 + sleeveLen * 0.35} L${675 + sleeveLen * 0.05} ${430 + sleeveLen} L600 ${380 + sleeveLen * 0.6} Z" fill="${c1}"/>
+      ${pattern}
+      ${hood}
+      <path d="M360 210 Q450 260 540 210 Q525 245 450 252 Q375 245 360 210 Z" fill="${c2}"/>
+      <circle cx="380" cy="330" r="26" fill="none" stroke="${accent}" stroke-width="5"/>
+      <path d="M368 330 l8 8 l16 -18" fill="none" stroke="${accent}" stroke-width="5" stroke-linecap="round"/>
+      <g stroke="#0b0b0d" stroke-opacity="0.13" stroke-width="7" fill="none" stroke-linecap="round">
+        <path d="M352 470 q34 130 -6 300"/>
+        <path d="M556 470 q-30 140 6 300"/>
+        <path d="M330 620 q120 34 250 6"/>
+      </g>
+    </g>
+  </g>
+</svg>`;
+}
+
 function sceneSvg(title, w, h, dark = true) {
   const bg = dark
     ? `<radialGradient id="s" cx="50%" cy="20%" r="95%"><stop offset="0%" stop-color="#23232b"/><stop offset="60%" stop-color="#121216"/><stop offset="100%" stop-color="#0b0b0d"/></radialGradient>`
@@ -142,6 +194,7 @@ const jobs = [];
 for (const [slug, spec] of Object.entries(PRODUCTS)) {
   jobs.push(webp(jerseySvg(spec), `p-${slug}.webp`));
   jobs.push(webp(detailSvg(spec), `p-${slug}-b.webp`));
+  jobs.push(webp(realPhotoSvg(spec), `p-${slug}-real.webp`));
 }
 
 const CATS = {

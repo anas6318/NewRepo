@@ -44,7 +44,7 @@ export function LanguageSelect() {
     <main className="theme-dark lang-gate">
       <div className="lang-gate__inner">
         <h1 className="sr-only">CROWNED — العربية · עברית · English</h1>
-        <img src="/brand/logo-white.svg" alt="CROWNED" width={210} height={54} className="lang-gate__logo" />
+        <img src="/brand/crowned-logo-white.png" alt="CROWNED" width={231} height={30} className="lang-gate__logo" />
         <p className="lang-gate__line" aria-hidden="true" />
         <ul className="lang-gate__list">
           {LOCALES.map((loc) => (

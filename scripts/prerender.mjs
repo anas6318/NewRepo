@@ -164,7 +164,7 @@ function escapeHtml(s) {
 }
 
 function organizationJsonLd() {
-  return { "@context": "https://schema.org", "@type": "Organization", name: "CROWNED", url: SITE, logo: `${SITE}/brand/logo.svg` };
+  return { "@context": "https://schema.org", "@type": "Organization", name: "CROWNED", url: SITE, logo: `${SITE}/brand/crowned-logo.png` };
 }
 function productJsonLd(p, locale) {
   return {

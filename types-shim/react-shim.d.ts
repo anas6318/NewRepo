@@ -51,6 +51,12 @@ declare module "react" {
     key: string;
     shiftKey: boolean;
   }
+  export interface PointerEvent<T = Element> extends MouseEvent<T> {
+    pointerType: string;
+  }
+  export interface FocusEvent<T = Element> extends SyntheticEvent<T> {
+    relatedTarget: EventTarget | null;
+  }
 
   export interface HTMLProps {
     [attr: string]: unknown;
@@ -67,9 +73,13 @@ declare module "react" {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onKeyDown?: (e: KeyboardEvent<any>) => void;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onBlur?: (e: SyntheticEvent<any>) => void;
+    onBlur?: (e: FocusEvent<any>) => void;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onFocus?: (e: SyntheticEvent<any>) => void;
+    onFocus?: (e: FocusEvent<any>) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onPointerEnter?: (e: PointerEvent<any>) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onPointerLeave?: (e: PointerEvent<any>) => void;
   }
   export type AnchorHTMLAttributes<T> = HTMLProps & { href?: string; target?: string; rel?: string; onClick?: (e: MouseEvent<T>) => void };
   export type SVGProps<T> = HTMLProps & { size?: number; width?: number | string; height?: number | string; viewBox?: string; fill?: string; stroke?: string; strokeWidth?: number | string; strokeLinecap?: string; strokeLinejoin?: string; "aria-hidden"?: boolean };

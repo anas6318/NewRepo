@@ -34,7 +34,7 @@ export function MaintenancePage() {
   return (
     <main id="main" className="theme-dark" style={{ minHeight: "70dvh", display: "flex", alignItems: "center" }}>
       <div className="container empty-state">
-        <img src="/brand/logo-white.svg" alt="CROWNED" width={190} height={48} />
+        <img src="/brand/crowned-logo-white.png" alt="CROWNED" width={200} height={26} />
         <h1 className="section__title">{t("maintenance.title")}</h1>
         <p className="text-muted">{t("maintenance.body")}</p>
       </div>

@@ -84,18 +84,70 @@
   color: var(--gold-400);
 }
 
-/* ── Site header ─────────────────────────────────────────────────────────── */
+/* ── Site header ─────────────────────────────────────────────────────────
+   White editorial header: official logo in its supplied dark ink, quiet
+   category navigation, customer actions. A slim dark utility bar above it
+   carries customer-service links (Track Order etc.) + language.
+   Header-specific breakpoint: mobile header below 1024px (the six primary
+   items need the room), global .hide-sm/.show-sm-only still switch at 720px
+   elsewhere. */
 .site-header {
   position: sticky;
   inset-block-start: 0;
   z-index: var(--z-header);
-  border-block-end: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink-900);
+  border-block-end: 1px solid var(--gray-100);
+  transition: box-shadow var(--t-med) var(--ease);
 }
 
+.site-header.is-scrolled {
+  box-shadow: var(--shadow-2);
+}
+
+/* ── Utility bar (desktop only) ── */
+.utility-bar {
+  display: none;
+  font-size: var(--fs-xs);
+  background-color: var(--ink-950);
+  color: var(--paper);
+}
+
+.utility-bar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  min-height: 38px;
+}
+
+.utility-bar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+}
+
+.utility-bar__link {
+  font-weight: 600;
+  color: var(--gray-300);
+  padding-block: var(--sp-1);
+  transition: color var(--t-fast) var(--ease);
+}
+
+.utility-bar__link:hover {
+  color: var(--white);
+}
+
+.utility-bar .icon-btn {
+  width: 32px;
+  height: 32px;
+}
+
+/* ── Main header row ── */
 .site-header__inner {
   display: flex;
   align-items: center;
-  gap: var(--sp-4);
+  gap: var(--sp-2);
   min-height: var(--header-h);
 }
 
@@ -103,43 +155,58 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  padding-block: var(--sp-3);
+  padding-inline: var(--sp-1);
+  border-radius: var(--r-sm);
 }
 
 .site-header__logo img {
-  height: 30px;
+  height: 20px;
   width: auto;
 }
 
 .site-header__nav {
-  display: flex;
+  display: none;
   align-items: center;
   gap: var(--sp-1);
   flex: 1;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.site-header__nav::-webkit-scrollbar {
-  display: none;
 }
 
 .site-header__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--fs-sm);
   font-weight: 600;
-  color: var(--fg-muted);
+  color: var(--gray-600);
   white-space: nowrap;
   border-radius: var(--r-sm);
   transition: color var(--t-fast) var(--ease);
 }
 
-.site-header__link:hover {
-  color: var(--fg);
+.site-header__link::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--sp-3);
+  inset-block-end: 3px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--gold-600);
+  transform: scaleX(0);
+  transition: transform var(--t-fast) var(--ease);
 }
 
-.site-header__link.is-active {
-  color: var(--gold-400);
+.site-header__link:hover,
+.site-header__link.is-active,
+.nav-dropdown__trigger.is-open {
+  color: var(--ink-900);
+}
+
+.site-header__link.is-active::after {
+  transform: scaleX(1);
 }
 
 .site-header__actions {
@@ -147,6 +214,121 @@
   align-items: center;
   gap: 2px;
   margin-inline-start: auto;
+}
+
+@media (min-width: 1024px) {
+  .utility-bar {
+    display: block;
+  }
+
+  .site-header__nav {
+    display: flex;
+  }
+
+  .site-header .show-sm-only {
+    display: none !important;
+  }
+
+  .site-header__inner {
+    gap: var(--sp-4);
+  }
+
+  .site-header__logo {
+    margin-inline-end: var(--sp-5);
+  }
+
+  .site-header__logo img {
+    height: 24px;
+  }
+}
+
+/* Mobile header row: menu — logo — actions, comfortably spaced. */
+@media (max-width: 1023px) {
+  .site-header .show-sm-only {
+    display: inline-flex !important;
+  }
+
+  .site-header .site-header__actions .hide-sm {
+    display: none !important;
+  }
+}
+
+/* ── Shop dropdown (desktop) ─────────────────────────────────────────────── */
+.nav-dropdown {
+  position: relative;
+}
+
+.nav-dropdown__chevron {
+  transition: transform var(--t-fast) var(--ease);
+}
+
+.nav-dropdown__trigger.is-open .nav-dropdown__chevron {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown__panel {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-start: calc(-1 * var(--sp-4));
+  display: flex;
+  gap: var(--sp-10);
+  background: var(--white);
+  color: var(--ink-900);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+  padding: var(--sp-6) var(--sp-8);
+  z-index: var(--z-dialog);
+  animation: dropdown-in var(--t-fast) var(--ease);
+}
+
+.nav-dropdown__panel[hidden] {
+  display: none;
+}
+
+.nav-dropdown__label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-eyebrow);
+  color: var(--gray-500);
+  margin-block-end: var(--sp-3);
+  white-space: nowrap;
+}
+
+.nav-dropdown__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-dropdown__link {
+  display: block;
+  padding-block: var(--sp-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--gray-700);
+  white-space: nowrap;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.nav-dropdown__link:hover {
+  color: var(--gold-700);
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Language switcher ───────────────────────────────────────────────────── */
@@ -186,10 +368,28 @@
   color: var(--gold-700);
 }
 
-/* ── Mobile nav ──────────────────────────────────────────────────────────── */
+/* ── Mobile nav drawer content ───────────────────────────────────────────── */
+.drawer__logo {
+  display: flex;
+  align-items: center;
+}
+
 .mobile-nav {
   display: flex;
   flex-direction: column;
+}
+
+.mobile-nav__heading {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--track-eyebrow);
+  color: var(--gray-500);
+  margin-block: var(--sp-5) var(--sp-2);
+}
+
+.mobile-nav > .mobile-nav__heading:first-child {
+  margin-block-start: 0;
 }
 
 .mobile-nav__link {
@@ -198,6 +398,12 @@
   font-weight: 700;
   font-family: var(--font-display);
   border-block-end: 1px solid var(--gray-100);
+}
+
+.mobile-nav__link--utility {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  font-family: var(--font-body);
 }
 
 .mobile-nav__link:hover {
@@ -323,18 +529,24 @@
   line-height: 1.7;
 }
 
-/* ── Hero ────────────────────────────────────────────────────────────────── */
+/* ── Hero ────────────────────────────────────────────────────────────────
+   Content-driven hero (src/components/home/HeroSection.tsx). Overlay and
+   alignment variants map to HeroBanner config. Entrance animation is
+   disabled by the global motion-safety rules + the explicit block below. */
 .hero {
   position: relative;
-  min-height: min(88dvh, 780px);
+  min-height: min(82dvh, 720px);
   display: flex;
   align-items: flex-end;
   overflow: hidden;
 }
 
-.hero__bg {
+.hero picture {
   position: absolute;
   inset: 0;
+}
+
+.hero__bg {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -350,10 +562,22 @@
     radial-gradient(900px 400px at 15% 100%, rgba(198, 163, 85, 0.16), transparent 60%);
 }
 
+.hero--overlay-soft::after {
+  background:
+    linear-gradient(to top, rgba(11, 11, 13, 0.78) 6%, rgba(11, 11, 13, 0.22) 45%, rgba(11, 11, 13, 0.14)),
+    radial-gradient(900px 400px at 15% 100%, rgba(198, 163, 85, 0.12), transparent 60%);
+}
+
+.hero--overlay-strong::after {
+  background:
+    linear-gradient(to top, rgba(11, 11, 13, 0.96) 12%, rgba(11, 11, 13, 0.55) 50%, rgba(11, 11, 13, 0.4)),
+    radial-gradient(900px 400px at 15% 100%, rgba(198, 163, 85, 0.16), transparent 60%);
+}
+
 .hero__content {
   position: relative;
   z-index: 1;
-  padding-block: var(--sp-14);
+  padding-block: var(--sp-12) var(--sp-14);
   max-width: 640px;
   display: flex;
   flex-direction: column;
@@ -361,22 +585,88 @@
   align-items: flex-start;
 }
 
+.hero--align-center .hero__content {
+  align-items: center;
+  text-align: center;
+  margin-inline: auto;
+}
+
+.hero__eyebrow {
+  color: var(--gold-400);
+}
+
 .hero__title {
   font-size: var(--fs-display);
   font-weight: 800;
-  line-height: 1.05;
+  line-height: var(--lh-display);
+  max-width: 16ch;
 }
 
 .hero__sub {
   font-size: var(--fs-lg);
   color: var(--gray-300);
   max-width: 44ch;
+  text-wrap: balance;
 }
 
 .hero__ctas {
   display: flex;
   gap: var(--sp-3);
   flex-wrap: wrap;
+}
+
+/* Subtle staggered entrance. */
+.hero__content > * {
+  opacity: 0;
+  transform: translateY(14px);
+  animation: hero-rise var(--t-slow) var(--ease) forwards;
+}
+
+.hero__content > :nth-child(2) {
+  animation-delay: 70ms;
+}
+
+.hero__content > :nth-child(3) {
+  animation-delay: 140ms;
+}
+
+.hero__content > :nth-child(4) {
+  animation-delay: 210ms;
+}
+
+@keyframes hero-rise {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__content > * {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero {
+    min-height: min(74dvh, 620px);
+  }
+
+  .hero__content {
+    padding-block: var(--sp-10) var(--sp-12);
+  }
+
+  .hero__ctas {
+    width: 100%;
+  }
+
+  .hero__ctas .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
+  }
 }
 
 /* ── Category tiles ──────────────────────────────────────────────────────── */
@@ -552,33 +842,115 @@
   object-fit: cover;
 }
 
-/* ── Trust strip ─────────────────────────────────────────────────────────── */
-.trust-strip {
-  display: grid;
-  gap: var(--sp-5);
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+/* ── Trust bar (compact band directly under the hero) ────────────────────── */
+.trust-bar {
+  border-block-end: 1px solid var(--line);
 }
 
-.trust-strip__item {
+.trust-bar__grid {
+  display: grid;
+  gap: var(--sp-5) var(--sp-6);
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  padding-block: var(--sp-6);
+}
+
+.trust-bar__item {
   display: flex;
   gap: var(--sp-3);
   align-items: flex-start;
 }
 
-.trust-strip__item svg {
+.trust-bar__item svg {
   color: var(--accent);
   flex-shrink: 0;
   margin-block-start: 3px;
 }
 
-.trust-strip__item h3 {
+.trust-bar__item h3 {
   font-size: var(--fs-sm);
   font-weight: 700;
 }
 
-.trust-strip__item p {
+.trust-bar__item p {
   font-size: var(--fs-xs);
   color: var(--fg-muted);
+}
+
+/* ── CROWNED Studio — one-of-one custom jerseys (homepage finale) ─────────
+   Full-bleed editorial banner: the imagery carries the message, the copy
+   stays to one headline, one line and one CTA. Centred, so it reads the
+   same in RTL and LTR. */
+.custom-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: min(78dvh, 660px);
+  display: flex;
+  align-items: center;
+  text-align: center;
+  /* Separates this dark banner from the dark Instagram section below it. */
+  border-block-end: 1px solid var(--line);
+}
+
+.custom-hero__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+}
+
+/* Flat scrim (no gradient) — guarantees text contrast over any photograph. */
+.custom-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 11, 13, 0.52);
+}
+
+.custom-hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-5);
+  padding-block: var(--sp-16);
+}
+
+.custom-hero__eyebrow {
+  color: var(--gold-400);
+}
+
+.custom-hero__title {
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  line-height: var(--lh-display);
+  max-width: 20ch;
+  text-wrap: balance;
+}
+
+.custom-hero__sub {
+  font-size: var(--fs-lg);
+  color: var(--gray-200);
+  max-width: 50ch;
+  text-wrap: pretty;
+}
+
+@media (max-width: 720px) {
+  .custom-hero {
+    min-height: min(68dvh, 560px);
+  }
+
+  .custom-hero__content {
+    padding-block: var(--sp-12);
+  }
+
+  .custom-hero__content .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* ── Filter bar ──────────────────────────────────────────────────────────── */
@@ -713,6 +1085,13 @@
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: var(--bg-raised);
+}
+
+/* The secondary action pair (wishlist + WhatsApp) sets the panel's minimum
+   width, which pushed the whole product layout past a 320px viewport.
+   Letting it wrap keeps narrow phones free of horizontal scrolling. */
+.product-actions .row {
+  flex-wrap: wrap;
 }
 
 .gallery {
@@ -1000,4 +1379,96 @@
 .prod-card__wish,
 .prod-card__badges {
   z-index: 2;
+}
+
+/* ── Product page: styled / real switch under the main image ───────────── */
+.gallery__slide {
+  position: relative;
+}
+
+.gallery__stage {
+  position: relative;
+}
+
+
+.gallery__media-ui {
+  position: absolute;
+  inset-inline: var(--sp-4);
+  inset-block-end: var(--sp-4);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  /* Only the control takes the click; the rest of the image still zooms. */
+  pointer-events: none;
+}
+
+.gallery__media-ui > * {
+  pointer-events: auto;
+}
+
+.gallery__media-note {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  line-height: 1.5;
+  margin-block-start: var(--sp-3);
+  margin-block-end: 0;
+}
+
+/* ── Admin: product images ─────────────────────────────────────────────── */
+.media-admin {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: var(--sp-5);
+}
+
+.media-admin__slot {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.media-admin__slot .field {
+  flex: 1 1 200px;
+  min-inline-size: 0;
+}
+
+.media-admin__preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.media-admin__preview img {
+  width: 96px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+
+.media-admin__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 120px;
+  border-radius: var(--r-sm);
+  border: 1px dashed var(--line-strong);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+}
+
+.media-admin__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.media-admin__row .input {
+  flex: 1 1 240px;
+  min-inline-size: 0;
 }

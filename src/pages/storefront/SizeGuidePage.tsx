@@ -6,9 +6,18 @@ import { useSettings } from "../../services/store.tsx";
 import { track } from "../../lib/analytics.ts";
 import { whatsappLink } from "../../lib/whatsapp.ts";
 import type { SizeChart } from "../../services/types.ts";
+import { SIZE_RULES, type SizeChartId, type UnitSystem } from "../../services/sizing.ts";
 import { useL } from "../../components/ui/bits.tsx";
 import { IconWhatsApp } from "../../components/ui/Icons.tsx";
 import { Breadcrumbs } from "../../components/layout/Breadcrumbs.tsx";
+import { SizeChartTable, SizeMeasuringHelp, UnitToggle } from "../../components/product/SizeChartTable.tsx";
+
+/** Sizes a type offers that the supplier has not measured (e.g. Fan 4XL). */
+function unmeasuredSizes(chart: SizeChart): string[] {
+  const rules = SIZE_RULES[chart.id as SizeChartId];
+  if (!rules) return [];
+  return rules.allowed.filter((s) => !chart.rows.some((r) => r.size === s));
+}
 
 export function SizeGuidePage() {
   const { locale, t } = useI18n();
@@ -16,7 +25,7 @@ export function SizeGuidePage() {
   const { settings } = useSettings();
   const [charts, setCharts] = useState<SizeChart[]>([]);
   const [activeId, setActiveId] = useState("fan");
-  const [inches, setInches] = useState(false);
+  const [system, setSystem] = useState<UnitSystem>("metric");
 
   usePageMeta({ title: t("sizeGuide.title"), description: t("sizeGuide.intro"), path: "/size-guide", locale });
 
@@ -29,7 +38,6 @@ export function SizeGuidePage() {
   }, []);
 
   const active = charts.find((c) => c.id === activeId) ?? charts[0];
-  const cm = (v: number) => (inches ? (v / 2.54).toFixed(1) : v);
 
   return (
     <main id="main" className="container section--tight section">
@@ -41,46 +49,28 @@ export function SizeGuidePage() {
 
       <div className="tabs mb-6" role="tablist" aria-label={t("sizeGuide.title")}>
         {charts.map((chart) => (
-          <button key={chart.id} type="button" role="tab" aria-selected={chart.id === (active?.id ?? "")} onClick={() => setActiveId(chart.id)}>
+          <button
+            key={chart.id}
+            type="button"
+            role="tab"
+            id={`sg-tab-${chart.id}`}
+            aria-selected={chart.id === (active?.id ?? "")}
+            aria-controls={`sg-panel-${chart.id}`}
+            onClick={() => setActiveId(chart.id)}
+          >
             {L(chart.name)}
           </button>
         ))}
       </div>
 
       {active && (
-        <div className="stack" style={{ maxWidth: 620 }}>
-          {active.isPlaceholder && <p className="badge badge--warn">{t("sizeGuide.placeholderNote")}</p>}
-          <div className="row" style={{ gap: "var(--sp-2)" }}>
-            <button type="button" className={`chip${!inches ? " is-selected" : ""}`} aria-pressed={!inches} onClick={() => setInches(false)}>
-              {t("sizeGuide.cm")}
-            </button>
-            <button type="button" className={`chip${inches ? " is-selected" : ""}`} aria-pressed={inches} onClick={() => setInches(true)}>
-              {t("sizeGuide.inches")}
-            </button>
-          </div>
-          <div className="table-wrap">
-            <table className="table" style={{ minWidth: 0 }}>
-              <caption className="sr-only">{L(active.name)}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{t("product.size")}</th>
-                  <th scope="col">{t("sizeGuide.chest")}</th>
-                  <th scope="col">{t("sizeGuide.length")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {active.rows.map((row) => (
-                  <tr key={row.size}>
-                    <td style={{ fontWeight: 700 }}>{row.size}</td>
-                    <td className="num">{cm(row.chestCm)}</td>
-                    <td className="num">{cm(row.lengthCm)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-sm text-muted">{L(active.note)}</p>
-          <p className="text-sm text-muted">{t("sizeGuide.variesNote")}</p>
+        <div className="stack stack--lg" id={`sg-panel-${active.id}`} role="tabpanel" aria-labelledby={`sg-tab-${active.id}`}>
+          <UnitToggle system={system} onChange={setSystem} />
+          <SizeChartTable chart={active} system={system} unconfirmedSizes={unmeasuredSizes(active)} />
+          <p className="text-sm text-muted" style={{ maxWidth: "70ch" }}>
+            {L(active.note)}
+          </p>
+          <SizeMeasuringHelp />
           {settings?.whatsappNumber && (
             <a
               className="btn btn--outline"

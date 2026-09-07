@@ -16,6 +16,7 @@ const SA_KEY = (Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY") ?? "").replac
 const HEADER = [
   "internal_id", "order_number", "order_date", "customer_name", "phone", "email", "language", "country", "city", "address",
   "products", "skus", "categories", "versions", "sizes", "sleeves", "custom_names", "custom_numbers", "patches", "quantities",
+  "promotion", "promotion_discount_ils",
   "unit_prices", "delivery_fee", "total", "payment_method", "payment_status", "fulfillment_status", "supplier_reference",
   "production_started", "supplier_dispatched", "tracking_number", "customer_notes", "internal_notes",
 ];
@@ -56,6 +57,8 @@ function orderToRow(o: Record<string, never> | Record<string, unknown>): string[
     items: { title: { en: string }; slug: string; version?: string; size: string; sleeve?: string; personalization?: { name?: string; number?: string }; patchName?: { en: string }; quantity: number; unitPriceIls: number }[];
     deliveryIls: number; totalIls: number; paymentMethod: string; paymentStatus: string; fulfillmentStatus: string;
     supplierReference?: string; productionStartedAt?: string; supplierDispatchedAt?: string; trackingNumber?: string; internalNotes?: string;
+    promotion?: { labelText: string; discountIls: number; items: { slug: string; discountIls: number }[] };
+    promotionDiscountIls?: number;
   };
   const items = d.items;
   const col = (fn: (i: (typeof items)[number]) => string | number | undefined) => items.map((i) => fn(i) ?? "").join(" | ");
@@ -63,6 +66,10 @@ function orderToRow(o: Record<string, never> | Record<string, unknown>): string[
     d.id, d.orderNumber, d.createdAt, d.customer.name, d.customer.phone, d.customer.email, d.locale, "IL", d.customer.city, d.customer.address,
     col((i) => i.title.en), col((i) => i.slug), "", col((i) => i.version), col((i) => i.size), col((i) => i.sleeve),
     col((i) => i.personalization?.name), col((i) => i.personalization?.number), col((i) => i.patchName?.en), col((i) => i.quantity),
+    // Which campaign applied and to which item(s) — from the order's own
+    // immutable snapshot, never recomputed at sync time.
+    d.promotion ? `${d.promotion.labelText} (${d.promotion.items.map((a) => `${a.slug} -${a.discountIls}`).join(", ")})` : "",
+    String(d.promotionDiscountIls ?? 0),
     col((i) => i.unitPriceIls), String(d.deliveryIls), String(d.totalIls), d.paymentMethod, d.paymentStatus, d.fulfillmentStatus,
     d.supplierReference ?? "", d.productionStartedAt ?? "", d.supplierDispatchedAt ?? "", d.trackingNumber ?? "", d.customer.notes ?? "", d.internalNotes ?? "",
   ];

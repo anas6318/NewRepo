@@ -1,15 +1,24 @@
-/** Premium homepage — section rhythm per spec §28: alternating dark
- * cinematic editorial and clean light shopping sections. */
+/** Premium homepage — V2 information architecture.
+ *
+ * Journey: Hero (brand) → Trust bar (instant reassurance) → Collections
+ * (orient) → Curated Selection (desire) → Fan vs Player (answer the #1
+ * question) → How It Works (3 steps, remove friction) → Why CROWNED (brand
+ * conviction) → CROWNED Studio (one-of-one custom jerseys — the grand
+ * finale, revealed only after trust is established) → Instagram (lifestyle
+ * social proof). One idea per section; dark/light rhythm preserved.
+ * Reviews return once enough verified orders exist. */
 import { useEffect, useState } from "react";
 import { Link } from "../../lib/router.tsx";
 import { useI18n } from "../../lib/i18n/index.tsx";
 import { usePageMeta, organizationJsonLd } from "../../lib/seo.tsx";
 import { useSettings } from "../../services/store.tsx";
 import { track } from "../../lib/analytics.ts";
-import type { CategoryDef, Product, Review } from "../../services/types.ts";
+import type { CategoryDef, Product } from "../../services/types.ts";
 import { ProductCard } from "../../components/product/ProductCard.tsx";
-import { SectionHead, Stars, useL } from "../../components/ui/bits.tsx";
-import { IconArrow, IconCheck, IconCrown, IconRuler, IconShield, IconTruck, IconWhatsApp } from "../../components/ui/Icons.tsx";
+import { HeroSection } from "../../components/home/HeroSection.tsx";
+import { HOME_HERO } from "../../content/hero.ts";
+import { SectionHead, useL } from "../../components/ui/bits.tsx";
+import { IconArrow, IconCrown, IconShield, IconShirt, IconTruck, IconWhatsApp } from "../../components/ui/Icons.tsx";
 import { whatsappLink } from "../../lib/whatsapp.ts";
 import { dataServiceSafe } from "./page-utils.ts";
 
@@ -30,52 +39,57 @@ export function HomePage() {
   const [categories, setCategories] = useState<CategoryDef[]>([]);
   const [featured, setFeatured] = useState<Product[]>([]);
   const [retro, setRetro] = useState<Product[]>([]);
-  const [current, setCurrent] = useState<Product[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
 
   useEffect(() => {
     let alive = true;
     void dataServiceSafe(async (svc) => {
-      const [cats, feat, r, c, revs] = await Promise.all([
+      const [cats, feat, r] = await Promise.all([
         svc.listCategories(),
         svc.listProducts({ featured: true }),
         svc.listProducts({ category: "retro", sort: "newest" }),
-        svc.listProducts({ category: "current-season" }),
-        svc.listApprovedReviews(),
       ]);
       if (!alive) return;
       setCategories(cats);
       setFeatured(feat.slice(0, 4));
       setRetro(r.slice(0, 4));
-      setCurrent(c.slice(0, 4));
-      setReviews(revs.slice(0, 3));
     });
     return () => {
       alive = false;
     };
   }, []);
 
+  /** The curated grid shows admin-featured pieces; retro is the fallback
+   * so the section never renders empty. */
+  const curated = featured.length ? featured : retro;
+
+  const trustPoints = [
+    { icon: <IconShield size={22} />, titleKey: "home.trustQualityTitle", bodyKey: "home.trustQualityBody" },
+    { icon: <IconShirt size={22} />, titleKey: "home.trustPrintingTitle", bodyKey: "home.trustPrintingBody" },
+    { icon: <IconTruck size={22} />, titleKey: "home.trustDeliveryTitle", bodyKey: "home.trustDeliveryBody" },
+    { icon: <IconWhatsApp size={22} />, titleKey: "home.trustSupportTitle", bodyKey: "home.trustSupportBody" },
+  ];
+
   return (
     <main id="main">
-      {/* 3 — Cinematic hero (dark) */}
-      <section className="hero theme-dark">
-        <img src="/demo/hero.webp" alt="" className="hero__bg" fetchPriority="high" />
-        <div className="container hero__content">
-          <p className="eyebrow">CROWNED</p>
-          <h1 className="hero__title">{t("home.heroTitle")}</h1>
-          <p className="hero__sub">{t("home.heroSubtitle")}</p>
-          <div className="hero__ctas">
-            <Link to={`${P}/shop`} className="btn btn--gold btn--lg">
-              {t("home.heroCtaPrimary")}
-            </Link>
-            <Link to={`${P}/category/retro`} className="btn btn--outline btn--lg">
-              {t("home.heroCtaSecondary")}
-            </Link>
-          </div>
+      {/* 2 — Hero (dark) — content config: src/content/hero.ts */}
+      <HeroSection banner={HOME_HERO} />
+
+      {/* 3 — Compact trust bar: reassure immediately after the hero */}
+      <section className="trust-bar theme-white" aria-label={t("home.trustTitle")}>
+        <div className="container trust-bar__grid">
+          {trustPoints.map((point) => (
+            <div key={point.titleKey} className="trust-bar__item">
+              {point.icon}
+              <div>
+                <h3>{t(point.titleKey)}</h3>
+                <p>{t(point.bodyKey)}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* 4 — Main categories (light) */}
+      {/* 4 — Collections (light) */}
       <section className="section theme-light">
         <div className="container">
           <SectionHead title={t("home.categoriesTitle")} />
@@ -98,46 +112,27 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 5 — Featured retro archive (dark editorial) */}
+      {/* 5 — Curated Selection (dark editorial): one product edit, not two grids */}
       <section className="section theme-dark">
         <div className="container">
           <SectionHead
             eyebrow={t("home.retroSubtitle")}
-            title={t("home.retroTitle")}
+            title={t("home.curatedTitle")}
             action={
-              <Link to={`${P}/category/retro`} className="btn btn--outline btn--sm">
+              <Link to={`${P}/shop`} className="btn btn--outline btn--sm">
                 {t("common.viewAll")} <IconArrow size={14} />
               </Link>
             }
           />
           <div className="prod-grid">
-            {retro.map((p) => (
+            {curated.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
         </div>
       </section>
 
-      {/* 6+7 — Clean product grid / current season (white) */}
-      <section className="section theme-white">
-        <div className="container">
-          <SectionHead
-            title={t("home.currentSeasonTitle")}
-            action={
-              <Link to={`${P}/category/current-season`} className="btn btn--outline btn--sm">
-                {t("common.viewAll")} <IconArrow size={14} />
-              </Link>
-            }
-          />
-          <div className="prod-grid">
-            {(current.length ? current : featured).map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 8 — Fan vs Player explanation (light) */}
+      {/* 6 — Fan vs Player (light): the #1 customer question, scannable */}
       <section className="section theme-light">
         <div className="container">
           <SectionHead title={t("home.versionExplainerTitle")} sub={t("home.versionExplainerBody")} />
@@ -170,26 +165,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 9 — Personalization (dark) */}
-      <section className="section theme-dark">
-        <div className="container editorial">
-          <img src="/demo/editorial.webp" alt="" loading="lazy" />
-          <div className="editorial__content">
-            <p className="eyebrow">{t("home.personalizationTitle")}</p>
-            <h2 className="section__title" style={{ maxWidth: "16ch" }}>
-              {t("home.personalizationBody")}
-            </h2>
-            <p className="text-muted" style={{ maxWidth: "40ch" }}>
-              {t("home.personalizationDetail")}
-            </p>
-            <Link to={`${P}/shop`} className="btn btn--gold" style={{ alignSelf: "flex-start" }}>
-              {t("home.heroCtaPrimary")}
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* 10 — How ordering works (white) */}
+      {/* 7 — How ordering works (white): three steps, zero friction */}
       <section className="section theme-white">
         <div className="container">
           <SectionHead
@@ -201,7 +177,7 @@ export function HomePage() {
             }
           />
           <div className="steps">
-            {[1, 2, 3, 4].map((n) => (
+            {[1, 2, 3].map((n) => (
               <div key={n} className="step">
                 <span className="step__num">0{n}</span>
                 <h3 className="step__title">{t(`home.step${n}Title`)}</h3>
@@ -212,94 +188,54 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 11 — Free delivery banner (dark) */}
-      <section className="section--tight section theme-dark">
+      {/* 8 — Why CROWNED (light): brand conviction, not repeated trust points */}
+      <section className="section--tight section theme-light">
         <div className="container center-text stack" style={{ alignItems: "center" }}>
           <IconCrown size={34} />
-          <h2 className="section__title">{t("home.freeDeliveryTitle")}</h2>
-          <p className="text-muted" style={{ maxWidth: "52ch" }}>
-            {t("home.freeDeliveryBody")}
+          <h2 className="section__title">{t("home.whyTitle")}</h2>
+          <p className="text-muted" style={{ maxWidth: "56ch" }}>
+            {t("home.whyBody")}
           </p>
-          <Link to={`${P}/shop`} className="btn btn--gold">
+          <Link to={`${P}/shop`} className="btn btn--dark">
             {t("home.heroCtaPrimary")}
           </Link>
         </div>
       </section>
 
-      {/* 12+13 — Editorial culture + reviews (light) */}
-      <section className="section theme-light">
-        <div className="container">
-          <SectionHead
-            eyebrow={t("home.editorialTitle")}
-            title={t("home.reviewsTitle")}
-            action={
-              <Link to={`${P}/reviews`} className="btn btn--outline btn--sm">
-                {t("common.viewAll")}
-              </Link>
-            }
-          />
-          <div className="grid-3">
-            {reviews.map((r) => (
-              <blockquote key={r.id} className="review-card" dir={r.locale === "en" ? "ltr" : "rtl"} lang={r.locale}>
-                <Stars rating={r.rating} />
-                <p className="review-card__body">{r.body}</p>
-                <footer className="review-card__meta">
-                  <span>{r.displayName}</span>
-                  {r.verified && (
-                    <span className="badge badge--ok">
-                      <IconCheck size={12} /> {t("reviews.verifiedPurchase")}
-                    </span>
-                  )}
-                  {r.isDemo && <span className="badge badge--demo">{t("common.demoLabel")}</span>}
-                </footer>
-              </blockquote>
-            ))}
-          </div>
+      {/* 9 — CROWNED Studio (grand finale): one-of-one custom jerseys.
+           Full-bleed editorial banner — imagery sells it, copy stays minimal. */}
+      <section className="custom-hero theme-dark">
+        <img
+          src="/demo/editorial.webp"
+          alt={t("home.customImageAlt")}
+          className="custom-hero__bg"
+          loading="lazy"
+          width={1600}
+          height={900}
+        />
+        <div className="container custom-hero__content">
+          <p className="eyebrow custom-hero__eyebrow">{t("home.customEyebrow")}</p>
+          <h2 className="custom-hero__title">{t("home.customTitle")}</h2>
+          <p className="custom-hero__sub">{t("home.customBody")}</p>
+          {settings?.whatsappNumber ? (
+            <a
+              href={whatsappLink(settings.whatsappNumber, locale, { intent: "general" })}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn--gold btn--lg"
+              onClick={() => track("whatsapp_click", { placement: "home_custom_studio" })}
+            >
+              {t("home.customCta")}
+            </a>
+          ) : (
+            <Link to={`${P}/contact`} className="btn btn--gold btn--lg">
+              {t("home.customCta")}
+            </Link>
+          )}
         </div>
       </section>
 
-      {/* 14 — Size guide CTA + 17 trust (white) */}
-      <section className="section theme-white">
-        <div className="container stack--lg stack">
-          <div className="trust-strip">
-            <div className="trust-strip__item">
-              <IconRuler size={22} />
-              <div>
-                <h3>{t("home.sizeGuideCtaTitle")}</h3>
-                <p>
-                  {t("home.sizeGuideCtaBody")}{" "}
-                  <Link to={`${P}/size-guide`} className="text-gold">
-                    {t("nav.sizeGuide")} →
-                  </Link>
-                </p>
-              </div>
-            </div>
-            <div className="trust-strip__item">
-              <IconTruck size={22} />
-              <div>
-                <h3>{t("home.trustDeliveryTitle")}</h3>
-                <p>{settings ? L(settings.supplierEtaText) : t("home.trustDeliveryBody")}</p>
-              </div>
-            </div>
-            <div className="trust-strip__item">
-              <IconShield size={22} />
-              <div>
-                <h3>{t("home.trustQualityTitle")}</h3>
-                <p>{t("home.trustQualityBody")}</p>
-              </div>
-            </div>
-            <div className="trust-strip__item">
-              <IconWhatsApp size={22} />
-              <div>
-                <h3>{t("home.trustSupportTitle")}</h3>
-                <p>{t("home.trustSupportBody")}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 15+16 — Instagram + signup (dark) */}
+      {/* 10 — Instagram + WhatsApp (dark): lifestyle social proof */}
       <section className="section theme-dark">
         <div className="container grid-2">
           <div className="stack">

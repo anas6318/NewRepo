@@ -1,37 +1,36 @@
+/**
+ * Site header — brand presentation + navigation shell.
+ *
+ * Composition (each part is its own component, all consuming the shared
+ * typed navigation content in src/content/navigation.ts):
+ *   UtilityBar          — slim customer-service bar (Track Order etc.) + language
+ *   DesktopNavigation   — primary categories + accessible Shop dropdown
+ *   HeaderActions       — search / wishlist / account / cart
+ *   MobileNavigation    — purpose-built mobile drawer
+ *
+ * The official CROWNED logo (public/brand/crowned-logo.png) links to the
+ * homepage and keeps its intrinsic ratio at every size; the header is sticky
+ * with a subtle elevation once the page is scrolled.
+ */
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "../../lib/router.tsx";
+import { Link, useLocation, useNavigate } from "../../lib/router.tsx";
 import { swapLocale } from "../../lib/router-core.ts";
 import { LOCALES, localeName, useI18n, type Locale } from "../../lib/i18n/index.tsx";
-import { useCart, useSession, useWishlist } from "../../services/store.tsx";
-import { useSettings } from "../../services/store.tsx";
 import { track } from "../../lib/analytics.ts";
-import { IconBag, IconClose, IconGlobe, IconHeart, IconInstagram, IconMenu, IconSearch, IconUser } from "../ui/Icons.tsx";
+import { UTILITY_NAV } from "../../content/navigation.ts";
+import { LOGO, logoWidthFor } from "../../content/brand.ts";
+import { IconGlobe, IconMenu } from "../ui/Icons.tsx";
+import { UtilityBar } from "./UtilityBar.tsx";
+import { DesktopNavigation } from "./DesktopNavigation.tsx";
+import { HeaderActions } from "./HeaderActions.tsx";
+import { MobileNavigation, MOBILE_MENU_ID } from "./MobileNavigation.tsx";
 
-const NAV_ITEMS: { key: string; path: string }[] = [
-  { key: "shop", path: "/shop" },
-  { key: "retro", path: "/category/retro" },
-  { key: "currentSeason", path: "/category/current-season" },
-  { key: "nationalTeams", path: "/category/national-teams" },
-  { key: "hoodies", path: "/category/hoodies" },
-  { key: "kids", path: "/category/kids" },
-  { key: "trackOrder", path: "/track" },
-];
-
-const MENU_EXTRA: { key: string; path: string }[] = [
-  { key: "playerVersion", path: "/category/player-version" },
-  { key: "fanVersion", path: "/category/fan-version" },
-  { key: "longSleeve", path: "/category/long-sleeve" },
-  { key: "sizeGuide", path: "/size-guide" },
-  { key: "about", path: "/about" },
-  { key: "contact", path: "/contact" },
-];
+const LOGO_HEIGHT = 24;
 
 export function Header() {
   const { locale, t } = useI18n();
-  const cart = useCart();
-  const wishlist = useWishlist();
-  const { customer } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
 
   // Close the mobile menu on navigation.
@@ -39,46 +38,45 @@ export function Header() {
     setMenuOpen(false);
   }, [location.pathname]);
 
+  // Subtle elevation once the page scrolls under the sticky header.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const L = `/${locale}`;
   return (
-    <header className="site-header theme-dark">
+    <header className={`site-header${scrolled ? " is-scrolled" : ""}`}>
+      <UtilityBar items={UTILITY_NAV} />
       <div className="container site-header__inner">
-        <button type="button" className="icon-btn show-sm-only" aria-label={t("nav.menu")} aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+        <button
+          type="button"
+          className="icon-btn show-sm-only"
+          aria-label={t("nav.openMenu")}
+          aria-expanded={menuOpen}
+          aria-controls={MOBILE_MENU_ID}
+          onClick={() => setMenuOpen(true)}
+        >
           <IconMenu />
         </button>
 
-        <Link to={L} className="site-header__logo" aria-label="CROWNED — {home}">
-          <img src="/brand/logo-white.svg" alt="CROWNED" width={150} height={38} />
+        <Link to={L} className="site-header__logo">
+          <img
+            src={LOGO.onLight.src}
+            alt={LOGO.alt}
+            width={logoWidthFor(LOGO.onLight, LOGO_HEIGHT)}
+            height={LOGO_HEIGHT}
+            fetchPriority="high"
+          />
         </Link>
 
-        <nav className="site-header__nav hide-sm" aria-label={t("nav.menu")}>
-          {NAV_ITEMS.map((item) => (
-            <NavLink key={item.key} to={`${L}${item.path}`} className="site-header__link">
-              {t(`nav.${item.key}`)}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="site-header__actions">
-          <Link to={`${L}/search`} className="icon-btn" aria-label={t("nav.search")}>
-            <IconSearch />
-          </Link>
-          <Link to={`${L}/wishlist`} className="icon-btn hide-sm" aria-label={t("nav.wishlist")}>
-            <IconHeart />
-            {wishlist.slugs.length > 0 && <span className="count-dot">{wishlist.slugs.length}</span>}
-          </Link>
-          <Link to={customer ? `${L}/account` : `${L}/login`} className="icon-btn hide-sm" aria-label={t("nav.account")}>
-            <IconUser />
-          </Link>
-          <LanguageSwitcher />
-          <button type="button" className="icon-btn" aria-label={t("nav.cart")} onClick={() => cart.setDrawerOpen(true)}>
-            <IconBag />
-            {cart.count > 0 && <span className="count-dot">{cart.count}</span>}
-          </button>
-        </div>
+        <DesktopNavigation />
+        <HeaderActions />
       </div>
 
-      {menuOpen && <MobileMenu onClose={() => setMenuOpen(false)} />}
+      {menuOpen && <MobileNavigation onClose={() => setMenuOpen(false)} />}
     </header>
   );
 }
@@ -131,98 +129,5 @@ export function LanguageSwitcher({ dark }: { dark?: boolean }) {
         </ul>
       )}
     </div>
-  );
-}
-
-function MobileMenu({ onClose }: { onClose: () => void }) {
-  const { locale, t } = useI18n();
-  const { customer } = useSession();
-  const { settings } = useSettings();
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Basic focus containment + Esc close (a11y).
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    panelRef.current?.querySelector<HTMLElement>("button, a")?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "Tab" && panelRef.current) {
-        const focusables = panelRef.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])");
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        if (!first || !last) return;
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-      previous?.focus();
-    };
-  }, [onClose]);
-
-  const L = `/${locale}`;
-  return (
-    <>
-      <div className="overlay" onClick={onClose} aria-hidden="true" />
-      <div className="drawer drawer--start" role="dialog" aria-modal="true" aria-label={t("nav.menu")} ref={panelRef}>
-        <div className="drawer__head">
-          <img src="/brand/logo.svg" alt="CROWNED" width={130} height={33} />
-          <button type="button" className="icon-btn" aria-label={t("common.close")} onClick={onClose}>
-            <IconClose />
-          </button>
-        </div>
-        <nav className="drawer__body mobile-nav" aria-label={t("nav.menu")}>
-          {[...NAV_ITEMS, ...MENU_EXTRA].map((item) => (
-            <Link key={item.key} to={`${L}${item.path}`} className="mobile-nav__link">
-              {t(`nav.${item.key}`)}
-            </Link>
-          ))}
-          <hr className="divider" />
-          <Link to={`${L}/wishlist`} className="mobile-nav__link">
-            {t("nav.wishlist")}
-          </Link>
-          <Link to={customer ? `${L}/account` : `${L}/login`} className="mobile-nav__link">
-            {t("nav.account")}
-          </Link>
-          {settings?.instagramUsername && (
-            <a
-              href={`https://instagram.com/${settings.instagramUsername}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mobile-nav__link row"
-              onClick={() => track("instagram_click", { placement: "mobile_menu" })}
-            >
-              <IconInstagram size={18} /> Instagram
-            </a>
-          )}
-        </nav>
-        <div className="drawer__foot">
-          <div className="row row--center" style={{ gap: "var(--sp-2)" }}>
-            {LOCALES.map((loc) => (
-              <LangLink key={loc} loc={loc} />
-            ))}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function LangLink({ loc }: { loc: Locale }) {
-  const { locale } = useI18n();
-  const location = useLocation();
-  return (
-    <Link to={swapLocale(location.pathname, loc, LOCALES)} className={`chip${loc === locale ? " is-selected" : ""}`} lang={loc}>
-      {localeName(loc)}
-    </Link>
   );
 }

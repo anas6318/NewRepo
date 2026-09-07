@@ -77,7 +77,7 @@ export function organizationJsonLd(): object {
     "@type": "Organization",
     name: "CROWNED",
     url: site,
-    logo: `${site}/brand/logo.svg`,
+    logo: `${site}/brand/crowned-logo.png`,
   };
 }
 
