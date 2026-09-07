@@ -346,7 +346,6 @@ async function updateOrder(req: Request, body: { orderNumber: string; patch: Rec
         productionStartedAt?: string;
         supplierDispatchedAt?: string;
         paymentMethod?: string;
-        paymentStatus?: string;
         supplierConfirmation?: { required: boolean; status: string; decidedBy?: string; decidedAt?: string; note?: string };
       }
     | undefined;

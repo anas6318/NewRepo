@@ -3,11 +3,19 @@
  * Recomputes every price server-side from the products table (client totals
  * are never trusted), validates options, applies the quantity-based
  * free-delivery rule, generates an unguessable order number, stores a
- * contact hash for guest tracking, queues the Sheets sync, and sends the
- * confirmation email (console mode unless a provider is configured).
+ * contact hash for guest tracking, queues the Sheets sync, sends the
+ * confirmation email (console mode unless a provider is configured) and
+ * alerts the owner that a new order landed.
+ *
+ * Ordering matters: the order is committed FIRST. The customer email, the
+ * owner alert and the Sheets sync are all best-effort steps that run after
+ * the row exists, and none of them can fail the order or change the
+ * response the customer gets.
  */
-import { audit, callerProfile, contactHash, db, dbInsert, dbSelect, handleError, json, preflight } from "../_shared/helpers.ts";
+import { audit, callerProfile, contactHash, db, dbInsert, dbSelect, dbUpdate, handleError, json, preflight } from "../_shared/helpers.ts";
 import { orderConfirmationEmail } from "../_shared/emails.ts";
+import { sendOwnerOrderNotification, shouldSendOwnerNotification, type OwnerNotificationResult } from "../_shared/owner-notification.ts";
+import { toCustomerOrderData } from "../_shared/customer-order.ts";
 
 interface Line {
   productId: string;
@@ -508,6 +516,10 @@ Deno.serve(async (req) => {
       ],
       ...(needsSupplierCheck ? { supplierConfirmation: { required: true, status: "pending", items: pendingConfirmation } } : {}),
       sheetsSync: { status: "pending" },
+      // Owner alert has not been attempted yet. If this function dies
+      // between the insert and the attempt below, the order honestly reads
+      // "pending" rather than claiming a notification that never happened.
+      notification: { status: "pending" } as OwnerNotificationResult,
       isDemo: false,
     };
 
@@ -542,6 +554,28 @@ Deno.serve(async (req) => {
       console.error("[place-order] email failed:", e);
     }
 
+    /* ── owner order alert ──────────────────────────────────────────────
+       Strictly after the order is committed, and strictly best-effort: the
+       sender never throws, and a failure is recorded on the order instead
+       of propagating. `shouldSendOwnerNotification` is the duplicate guard —
+       an order that already carries a result is never re-sent, and no other
+       function in this project calls the sender at all.
+
+       Keep this ABOVE the sheets-sync call: sheets-sync re-reads `data` and
+       writes the whole object back, so it must see the alert result rather
+       than an older copy that would overwrite it. */
+    if (shouldSendOwnerNotification(orderData)) {
+      const result = await sendOwnerOrderNotification(orderData);
+      orderData.notification = result;
+      try {
+        await dbUpdate(`orders?order_number=eq.${encodeURIComponent(orderNumber)}`, { data: orderData });
+      } catch (e) {
+        // The alert status could not be persisted. The ORDER is already
+        // safe; only the bookkeeping is lost, so it stays "pending" in Admin.
+        console.error("[place-order] notification status write failed:", e);
+      }
+    }
+
     /* fire-and-forget sheets sync attempt */
     try {
       await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/sheets-sync`, {
@@ -553,7 +587,10 @@ Deno.serve(async (req) => {
       /* retried by cron — see docs/google-sheets-setup.md */
     }
 
-    return json({ ok: true, orderNumber, trackingContact: c.email, order: orderData });
+    // The stored row is written for the owner — it carries the badge
+    // supplier references and the owner-alert bookkeeping. The copy returned
+    // at checkout goes through the same sanitizer as guest tracking.
+    return json({ ok: true, orderNumber, trackingContact: c.email, order: toCustomerOrderData(orderData) });
   } catch (err) {
     return handleError(err);
   }

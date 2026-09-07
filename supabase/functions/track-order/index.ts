@@ -4,6 +4,7 @@
  * Every failure returns the same generic null result.
  */
 import { contactHash, constantTimeEqual, dbSelect, handleError, json, preflight } from "../_shared/helpers.ts";
+import { toCustomerOrderData } from "../_shared/customer-order.ts";
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -25,25 +26,11 @@ Deno.serve(async (req) => {
     const matches = constantTimeEqual(emailHash, row.contact_hash) || constantTimeEqual(contactAsPhoneHash, phoneHash);
     if (!matches) return json({ order: null }, 404);
 
-    // Strip internal-only fields before returning to the customer — the
-    // customer sees only the clean CROWNED timeline, never supplier/carrier
-    // details.
-    const data = row.data as Record<string, unknown>;
-    delete data.internalNotes;
-    delete data.supplierReference;
-    delete data.trackingNumber;
-    delete data.trackingUrl;
-    // The badge snapshot keeps an internal supplier reference for the owner's
-    // ordering workflow. The customer sees only the badge name and price.
-    if (Array.isArray(data.items)) {
-      data.items = (data.items as Record<string, unknown>[]).map((item) => {
-        const badge = item.badge as Record<string, unknown> | undefined;
-        if (!badge) return item;
-        const { supplierReference: _internal, ...publicBadge } = badge;
-        return { ...item, badge: publicBadge };
-      });
-    }
-    return json({ order: data });
+    // One shared rule for every customer-facing order response: supplier
+    // references, carrier details, staff decisions and ops bookkeeping are
+    // removed; the clean CROWNED timeline and the customer's own order data
+    // stay. Same helper as the checkout response in place-order.
+    return json({ order: toCustomerOrderData(row.data as Record<string, unknown>) });
   } catch (err) {
     console.error("[track-order]", err);
     return handleError(new Error("not_found"));

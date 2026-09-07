@@ -31,7 +31,8 @@ import type {
 import { SupabaseClient } from "./client.ts";
 import { filterProducts } from "../catalog.ts";
 import { normalizeChart, toPublicProduct } from "../sizing.ts";
-import { normalizeBadgeOption, sortBadges, toPublicBadge, toPublicBadgeSnapshot } from "../../lib/badges.ts";
+import { normalizeBadgeOption, sortBadges, toPublicBadge } from "../../lib/badges.ts";
+import { toCustomerOrder } from "../../lib/orders.ts";
 import { demoCategories } from "../demo/seed-data.ts";
 
 /** Table rows store the domain objects in a `data` jsonb column plus a few
@@ -135,9 +136,9 @@ export class SupabaseDataService implements DataService {
 
   async listCustomerOrders(customerId: string) {
     const rows = await this.guard().select<Row<Order>>("orders", `select=id,data&customer_id=eq.${encodeURIComponent(customerId)}&order=created_at.desc`);
-    // The badge snapshot keeps an internal supplier reference for the owner's
-    // ordering workflow; customers never see it.
-    return rows.map((r) => ({ ...r.data, items: r.data.items.map((i) => (i.badge ? { ...i, badge: toPublicBadgeSnapshot(i.badge) } : i)) }));
+    // Account order history is a customer-facing response: the same
+    // sanitizer the tracker uses, so the two can never drift apart.
+    return rows.map((r) => toCustomerOrder(r.data));
   }
 
   /* ── leads / issues ── */

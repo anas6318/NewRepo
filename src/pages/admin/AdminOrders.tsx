@@ -108,6 +108,7 @@ export function AdminOrders() {
               <th scope="col">Payment</th>
               <th scope="col">Fulfillment</th>
               <th scope="col">Sheets</th>
+              <th scope="col">Owner alert</th>
               <th scope="col"></th>
             </tr>
           </thead>
@@ -136,6 +137,11 @@ export function AdminOrders() {
                   <span className={`badge ${o.sheetsSync.status === "synced" ? "badge--ok" : o.sheetsSync.status === "failed" ? "badge--err" : "badge--muted"}`}>{o.sheetsSync.status}</span>
                 </td>
                 <td>
+                  {/* Whether the owner's "new order" email actually went
+                      out. Internal — never shown to a customer. */}
+                  <NotificationBadge notification={o.notification} />
+                </td>
+                <td>
                   <Link to={`/admin/orders/${o.orderNumber}`} className="btn btn--outline btn--sm">
                     Manage
                   </Link>
@@ -147,6 +153,18 @@ export function AdminOrders() {
       </div>
     </div>
   );
+}
+
+/**
+ * Owner order-alert state, in the same visual language as the Sheets badge.
+ * `unknown` covers orders placed before this feature existed — saying so is
+ * more honest than implying an alert was configured and skipped.
+ */
+function NotificationBadge({ notification }: { notification?: Order["notification"] }) {
+  const status = notification?.status;
+  if (!status) return <span className="badge badge--muted">unknown</span>;
+  const cls = status === "sent" ? "badge--ok" : status === "failed" ? "badge--err" : status === "pending" ? "badge--warn" : "badge--muted";
+  return <span className={`badge ${cls}`}>{status}</span>;
 }
 
 function PayBadge({ status }: { status: PaymentStatus }) {
@@ -235,6 +253,13 @@ export function AdminOrderView({ orderNumber }: { orderNumber: string }) {
           </p>
           {order.customer.notes && <p className="text-sm text-muted">“{order.customer.notes}”</p>}
           <p className="text-xs text-muted">Language: {order.locale} · Zone: {order.zoneId} · Sheets: {order.sheetsSync.status}{order.sheetsSync.error ? ` — ${order.sheetsSync.error}` : ""}</p>
+          {/* Owner order-alert delivery. `sent` means the email provider
+              accepted it — never a guess. Internal only. */}
+          <p className="text-xs text-muted">
+            Owner alert: <NotificationBadge notification={order.notification} />
+            {order.notification?.lastAttemptAt ? ` · ${new Date(order.notification.lastAttemptAt).toLocaleString("en-GB")}` : ""}
+            {order.notification?.error ? ` — ${order.notification.error}` : ""}
+          </p>
         </section>
 
         <section className="card stack--sm stack" aria-label="Items">

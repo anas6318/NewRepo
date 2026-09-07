@@ -3,8 +3,13 @@
 ## 1 · Supabase
 
 1. Create a project (region: closest to Israel, currently eu-central).
-2. SQL editor → run `supabase/migrations/0001_schema.sql`, then
-   `0002_rls.sql`.
+2. SQL editor → run every migration, in filename order:
+   `0001_schema.sql`, `0002_rls.sql`,
+   `0003_size_charts_and_supplier_availability.sql`,
+   `0004_configurable_badge_options.sql`,
+   `0005_configurable_product_sales.sql`,
+   `0006_second_item_promotion.sql`.
+   Each is idempotent, but run them in order on a fresh project.
 3. Staging/dev only: run `supabase/seed.sql` (demo-labeled data — never in
    production).
 4. Auth → URL configuration: set site URL + redirect URLs to your domain.
@@ -23,6 +28,38 @@ supabase secrets set TRACKING_HASH_SECRET=$(openssl rand -hex 32) \
 # supabase secrets set GOOGLE_SHEET_ID=… GOOGLE_SERVICE_ACCOUNT_EMAIL=… GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=…
 # supabase secrets set ISRAELI_GATEWAY_API_KEY=… ISRAELI_GATEWAY_WEBHOOK_SECRET=…
 ```
+
+### Owner "new order" email
+
+Until these are set, nobody is emailed when an order arrives — you have to
+open Admin → Orders to see it. Set all four:
+
+```bash
+supabase secrets set EMAIL_PROVIDER=resend \
+  RESEND_API_KEY=re_… \
+  EMAIL_FROM=orders@yourdomain.tld \
+  ORDER_NOTIFICATION_EMAIL=you@yourdomain.tld
+# optional: a direct Admin link inside the alert
+supabase secrets set ADMIN_BASE_URL=https://yourdomain.tld
+```
+
+`EMAIL_FROM` must be a sender you have verified in Resend, or every send is
+rejected. These are edge-function secrets only — never `VITE_` variables,
+and never reachable from the browser.
+
+What each state means on an order (Admin → Orders, "Owner alert" column):
+
+| Status | Meaning |
+|---|---|
+| `sent` | Resend accepted the message. |
+| `failed` | An attempt was made and failed — the reason is shown next to it. |
+| `disabled` | Nothing was attempted: no `ORDER_NOTIFICATION_EMAIL`, or `EMAIL_PROVIDER` is not `resend`. |
+| `pending` | The order was saved but the alert result was never written back (rare — check function logs). |
+| `unknown` | Placed before this feature existed. |
+
+The alert always runs **after** the order is committed and never affects the
+customer's result: a failed or misconfigured alert leaves a perfectly valid
+order, recorded so you can see it and re-send by hand.
 
 Schedule the Sheets retry drain (Dashboard → Edge Functions → cron, or
 pg_cron): POST `sheets-sync` with body `{"drain":true}` every 15 min using
@@ -63,6 +100,10 @@ Roles: owner, admin, order_manager, content_manager (see admin-guide).
 - [ ] Guest bank-transfer checkout → order in `/admin/orders` as
       awaiting_payment; confirmation email visible in function logs
       (console mode).
+- [ ] Owner alert: with the four secrets set, the order's "Owner alert"
+      column reads `sent` and the email arrives. Then deliberately break
+      `RESEND_API_KEY` and place another test order — the order must still
+      succeed and the column must read `failed` with a reason.
 - [ ] Tracking: number+email works; number+wrong contact yields the same
       generic failure.
 - [ ] Admin: set payment paid → timeline gains payment_confirmed; resync →

@@ -555,7 +555,25 @@ export interface Order {
   };
   customerVisibleMessage?: LocalizedText;
   sheetsSync: { status: "pending" | "synced" | "failed" | "disabled"; lastAttemptAt?: string; error?: string };
+  /** Owner order-alert delivery state, written by the place-order edge
+   * function after the order is committed. Internal only — stripped from
+   * every customer-facing response. Absent on orders placed before the
+   * feature existed. */
+  notification?: OrderNotification;
   isDemo: boolean;
+}
+
+/** Whether the owner's "new order" email actually went out.
+ *  `pending`  — the order is saved; the alert has not been attempted yet.
+ *  `sent`     — the email provider accepted the message.
+ *  `failed`   — an attempt was made and did not succeed (`error` says why).
+ *  `disabled` — no alert was configured, so none was attempted.
+ * A status is never `sent` unless a provider accepted delivery. */
+export interface OrderNotification {
+  status: "pending" | "sent" | "failed" | "disabled";
+  lastAttemptAt?: string;
+  /** Internal diagnostic. Never shown to a customer. */
+  error?: string;
 }
 
 export interface Review {

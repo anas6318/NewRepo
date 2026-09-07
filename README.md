@@ -47,12 +47,19 @@ sandbox:build && npm run sandbox:serve` → http://localhost:4173.
 
 ## Going live (summary — full steps in docs/deployment-guide.md)
 
-1. Create a Supabase project; run the migrations in order —
-   `0001_schema.sql`, `0002_rls.sql`, `0003_size_charts_and_supplier_availability.sql`,
-   `0004_configurable_badge_options.sql`; seed dev/staging with
+1. Create a Supabase project; run **all** migrations in order —
+   `0001_schema.sql`, `0002_rls.sql`,
+   `0003_size_charts_and_supplier_availability.sql`,
+   `0004_configurable_badge_options.sql`,
+   `0005_configurable_product_sales.sql`,
+   `0006_second_item_promotion.sql`; seed dev/staging with
    `supabase/seed.sql` (never prod).
 2. Deploy edge functions in `supabase/functions/` and set their secrets
-   (`.env.example` lists every name).
+   (`.env.example` lists every name). To be emailed about **new orders**,
+   set all four of `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`
+   and `ORDER_NOTIFICATION_EMAIL` — leaving any of them unset records the
+   order's owner alert as `disabled`/`failed` in Admin instead of
+   pretending it was sent.
 3. Set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (+ site URL, WhatsApp,
    Instagram, analytics IDs) and deploy `npm run build` output to Vercel
    (config in `vercel.json`) or any static host with SPA rewrites.
@@ -77,6 +84,10 @@ sandbox:build && npm run sandbox:serve` → http://localhost:4173.
   production.
 - Google Sheets is a one-way mirror with a retry queue; Postgres stays the
   source of truth; never connects to any legacy spreadsheet.
+- Owner "new order" email is sent **after** the order is committed and can
+  never fail a checkout; its real delivery state (`sent`/`failed`/
+  `disabled`/`pending`) is stored on the order and shown in Admin, and is
+  never reported as sent unless the provider accepted it.
 
 ## Documentation index
 

@@ -47,9 +47,9 @@ import {
   resolveBadgeSelection,
   sortBadges,
   toPublicBadge,
-  toPublicBadgeSnapshot,
   validateBadgeCatalog,
 } from "../../lib/badges.ts";
+import { toCustomerOrder } from "../../lib/orders.ts";
 import { priceLine, priceSnapshot, cartSubtotal } from "../../lib/pricing.ts";
 import { discountableAmount, priceValidUntil, resolveSale } from "../../lib/sales.ts";
 import { merchandiseUnitValue, promotionSnapshot, resolvePromotion, validatePromotion, type PromotionLine } from "../../lib/promotions.ts";
@@ -360,9 +360,15 @@ export class DemoDataService implements DataService {
     // Demo-mode "sync": records intent only. Real syncing is the
     // sheets-sync edge function — never claimed to have run here.
     order.sheetsSync = { status: "disabled", error: "Demo mode — Google Sheets not connected" };
+    // Same honesty for the owner alert: there is no server and no email
+    // provider in demo mode, so nothing was sent and nothing pretends it
+    // was. Production sends this from the place-order edge function.
+    order.notification = { status: "disabled", lastAttemptAt: now, error: "Demo mode — owner email notifications are not sent" };
     this.audit("storefront", "order_created", orderNumber);
     this.save();
-    return { ok: true, orderNumber, trackingContact: input.customer.email, order };
+    // The stored order keeps everything the owner needs; the copy handed
+    // back at checkout is sanitized exactly like the tracker's.
+    return { ok: true, orderNumber, trackingContact: input.customer.email, order: toCustomerOrder(order) };
   }
 
   private newOrderNumber(): string {
@@ -384,25 +390,15 @@ export class DemoDataService implements DataService {
     const c = norm(contact);
     if (c.length < 4) return null;
     if (norm(order.customer.email) !== c && norm(order.customer.phone) !== c) return null;
-    // Mirror the production edge function: internal/supplier fields are
-    // stripped before the order reaches the customer-facing tracker.
-    const sanitized: Order = {
-      ...order,
-      // The badge snapshot carries an internal supplier reference for the
-      // owner's own ordering; the customer sees only name and price.
-      items: order.items.map((i) => (i.badge ? { ...i, badge: toPublicBadgeSnapshot(i.badge) } : i)),
-    };
-    delete sanitized.internalNotes;
-    delete sanitized.supplierReference;
-    delete sanitized.trackingNumber;
-    delete sanitized.trackingUrl;
-    return sanitized;
+    // One shared rule for every customer-facing order response — the same
+    // one the track-order edge function applies in production.
+    return toCustomerOrder(order);
   }
 
   async listCustomerOrders(customerId: string) {
-    return this.db.orders
-      .filter((o) => o.customer.customerId === customerId)
-      .map((o) => ({ ...o, items: o.items.map((i) => (i.badge ? { ...i, badge: toPublicBadgeSnapshot(i.badge) } : i)) }));
+    // Account order history is a customer-facing response like any other:
+    // same sanitizer, same rules as the tracker.
+    return this.db.orders.filter((o) => o.customer.customerId === customerId).map(toCustomerOrder);
   }
 
   /* ── leads / issues ── */
