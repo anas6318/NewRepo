@@ -36,6 +36,9 @@ export const CUSTOMER_HIDDEN_ORDER_FIELDS = [
   "supplierDispatchedAt",
   /** Owner "new order" email bookkeeping; can carry a provider error. */
   "notification",
+  /** Customer email ledger: provider errors and attempt counts are ops data,
+   * and the customer already has the emails themselves. */
+  "customerEmails",
 ] as const;
 
 /**

@@ -19,6 +19,7 @@ import type {
   ImportRowResult,
   IssueReport,
   Lead,
+  CustomerEmailEvent,
   Order,
   Product,
   ProductFilters,
@@ -271,6 +272,18 @@ export class SupabaseDataService implements DataService {
       return await this.guard().invoke<{ ok: boolean; message: string }>("sheets-sync", { orderNumber, manual: true });
     } catch (e) {
       return { ok: false, message: e instanceof Error ? e.message : "resync_failed" };
+    }
+  }
+
+  async adminResendCustomerEmail(orderNumber: string, event: CustomerEmailEvent) {
+    try {
+      return await this.guard().invoke<{ ok: boolean; message: string }>("admin-actions", {
+        action: "resend-customer-email",
+        orderNumber,
+        event,
+      });
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : "resend_failed" };
     }
   }
 

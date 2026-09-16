@@ -13,7 +13,7 @@
  * rejects everything — it never fakes success.
  */
 import { audit, db, dbInsert, dbSelect, dbUpdate, handleError, json } from "../_shared/helpers.ts";
-import { paymentConfirmedEmail } from "../_shared/emails.ts";
+import { deliverStatusEmail } from "../_shared/customer-notifications.ts";
 
 interface NormalizedEvent {
   providerEventId: string;
@@ -127,9 +127,9 @@ Deno.serve(async (req) => {
       order.paymentStatus = "paid";
       order.fulfillmentStatus = "payment_confirmed";
       order.tracking.push({ status: "payment_confirmed", at: now });
-      const email = paymentConfirmedEmail(order.locale, event.orderNumber);
-      const { sendEmail } = await import("../_shared/helpers.ts");
-      await sendEmail(order.customer.email, email.subject, email.html).catch(() => undefined);
+      // Same ledger as every other trigger: if Admin already told the
+      // customer their payment landed, the webhook does not tell them twice.
+      await deliverStatusEmail(order as unknown as Record<string, unknown>, "payment_confirmed");
     } else if (event.outcome === "failed") {
       order.paymentStatus = "failed";
     } else if (event.outcome === "refunded") {

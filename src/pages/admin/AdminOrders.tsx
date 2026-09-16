@@ -5,7 +5,8 @@ import { dataService } from "../../services/index.ts";
 import { useToast, useSettings } from "../../services/store.tsx";
 import { formatPrice } from "../../lib/i18n/index.tsx";
 import { whatsappLink } from "../../lib/whatsapp.ts";
-import type { FulfillmentStatus, Order, PaymentStatus } from "../../services/types.ts";
+import type { CustomerEmailEvent, FulfillmentStatus, Order, PaymentStatus } from "../../services/types.ts";
+import { CUSTOMER_EMAIL_EVENTS, CUSTOMER_EMAIL_EVENT_LABEL } from "../../lib/order-emails.ts";
 
 const PAYMENT_STATUSES: PaymentStatus[] = ["pending", "awaiting_payment", "authorized", "paid", "failed", "cancelled", "refunded", "partially_refunded", "under_review"];
 const FULFILLMENT_STATUSES: FulfillmentStatus[] = [
@@ -167,6 +168,59 @@ function NotificationBadge({ notification }: { notification?: Order["notificatio
   return <span className={`badge ${cls}`}>{status}</span>;
 }
 
+/**
+ * Per-milestone customer-email ledger with a retry for anything that did not
+ * reach the customer. Internal: nothing here is ever shown to a customer.
+ */
+function CustomerEmailPanel({ order, onChanged }: { order: Order; onChanged: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState<CustomerEmailEvent | null>(null);
+  const log = order.customerEmails ?? {};
+
+  const resend = async (event: CustomerEmailEvent) => {
+    setBusy(event);
+    try {
+      const res = await dataService().adminResendCustomerEmail(order.orderNumber, event);
+      toast.push(res.message, res.ok ? "info" : "error");
+      onChanged();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="card stack--sm stack" aria-label="Customer emails">
+      <h2 className="drawer__title">Customer emails</h2>
+      <p className="field__hint">
+        One email per milestone, in the order’s own language. “sent” means the provider accepted it, and a milestone
+        already sent is never sent again. Anything else can be retried.
+      </p>
+      <ul style={{ listStyle: "none", padding: 0 }} className="stack--sm stack">
+        {CUSTOMER_EMAIL_EVENTS.map((event) => {
+          const record = log[event];
+          const cls = !record ? "badge--muted" : record.status === "sent" ? "badge--ok" : record.status === "failed" ? "badge--err" : "badge--warn";
+          return (
+            <li key={event} className="row row--between row--wrap text-sm" style={{ gap: "var(--sp-2)" }}>
+              <span>
+                {CUSTOMER_EMAIL_EVENT_LABEL[event]}{" "}
+                <span className={`badge ${cls}`}>{record ? record.status : "not sent"}</span>
+                {record?.at && <span className="text-xs text-muted"> · {new Date(record.at).toLocaleString("en-GB")}</span>}
+                {record && record.attempts > 1 && <span className="text-xs text-muted"> · {record.attempts} attempts</span>}
+                {record?.error && <span className="text-xs text-muted"> — {record.error}</span>}
+              </span>
+              {record && record.status !== "sent" && (
+                <button type="button" className="btn btn--outline btn--sm" disabled={busy === event} onClick={() => void resend(event)}>
+                  {busy === event ? "Sending…" : "Retry"}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function PayBadge({ status }: { status: PaymentStatus }) {
   const cls = status === "paid" ? "badge--ok" : ["failed", "cancelled"].includes(status) ? "badge--err" : ["awaiting_payment", "pending", "under_review"].includes(status) ? "badge--warn" : "badge--muted";
   return <span className={`badge ${cls}`}>{status}</span>;
@@ -261,6 +315,8 @@ export function AdminOrderView({ orderNumber }: { orderNumber: string }) {
             {order.notification?.error ? ` — ${order.notification.error}` : ""}
           </p>
         </section>
+
+        <CustomerEmailPanel order={order} onChanged={load} />
 
         <section className="card stack--sm stack" aria-label="Items">
           <h2 className="drawer__title">Items</h2>

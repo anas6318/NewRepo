@@ -560,8 +560,42 @@ export interface Order {
    * every customer-facing response. Absent on orders placed before the
    * feature existed. */
   notification?: OrderNotification;
+  /** Per-milestone ledger of the customer emails this order has produced.
+   * Internal — stripped from every customer-facing response. Absent on
+   * orders placed before the feature existed. */
+  customerEmails?: CustomerEmailLog;
   isDemo: boolean;
 }
+
+/** Order milestones the customer is emailed about. Several internal
+ * fulfilment statuses can map to one milestone; the milestone is what gets
+ * an email, and it gets exactly one. */
+export type CustomerEmailEvent =
+  | "order_received"
+  | "payment_confirmed"
+  | "processing"
+  | "shipped"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled"
+  | "refunded";
+
+/** What happened the last time this milestone's email was attempted.
+ *  `sent`     — the provider accepted it; it will never be sent again.
+ *  `failed`   — attempted and did not go out; retryable, `error` says why.
+ *  `disabled` — no provider configured, so nothing was attempted. */
+export interface CustomerEmailRecord {
+  status: "sent" | "failed" | "disabled";
+  at: string;
+  /** Attempts so far, including the one this record describes. */
+  attempts: number;
+  /** The address used — so a typo'd customer email is debuggable. */
+  to?: string;
+  /** Internal diagnostic. Never shown to a customer. */
+  error?: string;
+}
+
+export type CustomerEmailLog = Partial<Record<CustomerEmailEvent, CustomerEmailRecord>>;
 
 /** Whether the owner's "new order" email actually went out.
  *  `pending`  — the order is saved; the alert has not been attempted yet.

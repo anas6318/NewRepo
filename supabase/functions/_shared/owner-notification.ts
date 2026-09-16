@@ -10,6 +10,9 @@
  * means a provider accepted the message. Console mode and missing
  * configuration are reported as "disabled"/"failed" — never as "sent".
  *
+ * The actual send goes through _shared/email-provider.ts — one Resend call,
+ * one timeout, one redaction rule, shared with the customer status emails.
+ *
  * Runtime: written for Deno (edge functions) but with no top-level Deno
  * access and an injectable `fetch`, so tests/unit/order-notification.test.ts
  * exercises this exact module under Node. Keep it that way.
@@ -19,6 +22,11 @@
  * an email is a copy that travels, so it carries only what is needed to act
  * on the order.
  */
+
+import { deliverEmail, envGet, escapeHtml, readEmailProviderConfig, redactError } from "./email-provider.ts";
+
+// Re-exported so this module stays the single import for owner alerts.
+export { escapeHtml, redactError };
 
 export type OwnerNotificationStatus = "pending" | "sent" | "failed" | "disabled";
 
@@ -84,17 +92,6 @@ export interface OwnerOrderView {
 
 /* ── Configuration ─────────────────────────────────────────────────────── */
 
-function envGet(name: string): string {
-  // Guarded so this module also imports cleanly outside Deno (tests).
-  const deno = (globalThis as { Deno?: { env?: { get(k: string): string | undefined } } }).Deno;
-  try {
-    return deno?.env?.get(name) ?? "";
-  } catch {
-    // Deno without --allow-env: treat as unset rather than crashing a checkout.
-    return "";
-  }
-}
-
 /**
  * Reads the four documented secrets plus an optional base URL for the
  * admin deep link. All server-side only — none of these is a VITE_ variable
@@ -102,11 +99,12 @@ function envGet(name: string): string {
  */
 export function readOwnerNotificationConfig(): OwnerNotificationConfig {
   const origin = envGet("ALLOWED_ORIGIN");
+  const provider = readEmailProviderConfig();
   return {
-    provider: envGet("EMAIL_PROVIDER") || "console",
+    provider: provider.provider,
     recipient: envGet("ORDER_NOTIFICATION_EMAIL").trim(),
-    from: envGet("EMAIL_FROM") || "orders@example.com",
-    apiKey: envGet("RESEND_API_KEY"),
+    from: provider.from,
+    apiKey: provider.apiKey,
     // ALLOWED_ORIGIN is already the site origin in a real deployment, but it
     // may legitimately be "*" — which is not a link.
     adminBaseUrl: (envGet("ADMIN_BASE_URL") || envGet("SITE_URL") || (origin.startsWith("http") ? origin : "")).replace(/\/+$/, ""),
@@ -121,29 +119,6 @@ function text(value: Record<string, string> | string | undefined, locale = "en")
   if (typeof value === "string") return value;
   if (value && typeof value === "object") return value[locale] || value.en || Object.values(value)[0] || "";
   return "";
-}
-
-/** Everything interpolated below can contain customer-supplied text. */
-export function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-/**
- * Provider errors are stored on the order and shown in Admin. Strip anything
- * key-shaped before it is persisted, and cap the length so a giant HTML
- * error page cannot bloat the order row.
- */
-export function redactError(message: string): string {
-  return message
-    .replace(/re_[A-Za-z0-9_-]{8,}/g, "[redacted]")
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
-    .replace(/(api[_-]?key"?\s*[:=]\s*"?)[A-Za-z0-9._-]{8,}/gi, "$1[redacted]")
-    .slice(0, 300);
 }
 
 /** Direct link to the order in Admin, when a base URL is configured. */
@@ -266,9 +241,6 @@ export function shouldSendOwnerNotification(order: OwnerOrderView): boolean {
 
 /* ── Sending ───────────────────────────────────────────────────────────── */
 
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
-const TIMEOUT_MS = 8000;
-
 /**
  * Attempts the owner alert and reports what actually happened.
  *
@@ -282,48 +254,22 @@ export async function sendOwnerOrderNotification(
   deps: { fetch?: typeof fetch; now?: () => Date } = {},
 ): Promise<OwnerNotificationResult> {
   const at = (deps.now ? deps.now() : new Date()).toISOString();
-  const doFetch = deps.fetch ?? globalThis.fetch;
 
   try {
     if (!config.recipient) {
       return { status: "disabled", lastAttemptAt: at, error: "ORDER_NOTIFICATION_EMAIL is not set" };
     }
-    if (config.provider !== "resend") {
-      // Console mode: log it so it is visible in function logs, but never
-      // claim a delivery that did not happen.
-      const built = buildOwnerOrderEmail(order, config.adminBaseUrl);
-      console.log(`[owner-notification:console] to=${config.recipient} subject=${built.subject}\n${built.text}`);
-      return { status: "disabled", lastAttemptAt: at, error: `EMAIL_PROVIDER=${config.provider || "console"} — owner email not sent` };
-    }
-    if (!config.apiKey) {
-      // The owner asked for real delivery and did not get it: that is a
-      // failure to surface, not a quiet fallback.
-      return { status: "failed", lastAttemptAt: at, error: "EMAIL_PROVIDER=resend but RESEND_API_KEY is not set" };
-    }
-
     const built = buildOwnerOrderEmail(order, config.adminBaseUrl);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    try {
-      const res = await doFetch(RESEND_ENDPOINT, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${config.apiKey}`, "content-type": "application/json" },
-        body: JSON.stringify({ from: config.from, to: config.recipient, subject: built.subject, html: built.html, text: built.text }),
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        let detail = "";
-        try {
-          detail = (await res.text()).slice(0, 200);
-        } catch {
-          /* body already consumed or unreadable — status alone is enough */
-        }
-        return { status: "failed", lastAttemptAt: at, error: redactError(`resend ${res.status}${detail ? `: ${detail}` : ""}`) };
-      }
-      return { status: "sent", lastAttemptAt: at };
-    } finally {
-      clearTimeout(timer);
+    if (config.provider !== "resend") {
+      // Console mode: log the whole alert so it is usable from function logs.
+      console.log(`[owner-notification:console] to=${config.recipient}\n${built.text}`);
     }
+    const outcome = await deliverEmail(
+      { provider: config.provider, from: config.from, apiKey: config.apiKey },
+      { to: config.recipient, subject: built.subject, html: built.html, text: built.text },
+      { ...(deps.fetch ? { fetch: deps.fetch } : {}), label: "owner-notification" },
+    );
+    return { status: outcome.status, lastAttemptAt: at, ...(outcome.error ? { error: outcome.error } : {}) };
   } catch (err) {
     const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     return { status: "failed", lastAttemptAt: at, error: redactError(message) };

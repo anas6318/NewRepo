@@ -14,6 +14,7 @@ import type {
   ImportRowResult,
   IssueReport,
   Lead,
+  CustomerEmailEvent,
   Order,
   PaymentStatus,
   Product,
@@ -119,6 +120,9 @@ export interface DataService {
     }>,
   ): Promise<{ ok: boolean; order?: Order }>;
   adminResyncOrder(orderNumber: string): Promise<{ ok: boolean; message: string }>;
+  /** Retry one customer status email that did not reach the customer.
+   * A milestone already delivered is never re-sent. */
+  adminResendCustomerEmail(orderNumber: string, event: CustomerEmailEvent): Promise<{ ok: boolean; message: string }>;
   adminListCustomers(): Promise<Customer[]>;
   adminListReviews(): Promise<Review[]>;
   adminModerateReview(id: string, status: Review["status"], verified?: boolean): Promise<{ ok: boolean }>;

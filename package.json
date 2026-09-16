@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "CROWNED — premium multilingual (ar/he/en) football jersey ecommerce platform. React + Vite + TypeScript + Supabase.",
+  "description": "CROWNED \u2014 premium multilingual (ar/he/en) football jersey ecommerce platform. React + Vite + TypeScript + Supabase.",
   "scripts": {
     "dev": "vite",
     "build": "node scripts/typecheck.mjs && vite build && node scripts/generate-sitemap.mjs && node scripts/prerender.mjs",
@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "test:e2e": "node tests/e2e/run-e2e.mjs",
+    "smoke:email": "node scripts/smoke-email.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "prerender": "node scripts/prerender.mjs",
     "demo:images": "node scripts/generate-demo-images.mjs",

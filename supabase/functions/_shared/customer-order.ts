@@ -19,6 +19,7 @@ export const CUSTOMER_HIDDEN_ORDER_FIELDS = [
   "productionStartedAt",
   "supplierDispatchedAt",
   "notification",
+  "customerEmails",
 ] as const;
 
 type Bag = Record<string, unknown>;

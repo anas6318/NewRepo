@@ -10,7 +10,16 @@
  * save-promotions.
  */
 import { audit, dbInsert, dbSelect, dbUpdate, db, handleError, HttpError, json, preflight, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
-import { dispatchedEmail } from "../_shared/emails.ts";
+import {
+  alreadySent,
+  CUSTOMER_EMAIL_EVENTS,
+  deliverStatusEmail,
+  eventForStatusChange,
+  readCustomerEmailConfig,
+  recordCustomerEmail,
+  sendCustomerStatusEmail,
+  type CustomerEmailEvent,
+} from "../_shared/customer-notifications.ts";
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -28,6 +37,8 @@ Deno.serve(async (req) => {
         return await importProducts(req, body as { rows: Record<string, string>[] });
       case "update-order":
         return await updateOrder(req, body as { orderNumber: string; patch: Record<string, unknown> });
+      case "resend-customer-email":
+        return await resendCustomerEmail(req, body as { orderNumber: string; event: string });
       case "list-promotions":
         return await listPromotions(req);
       case "save-promotions":
@@ -353,6 +364,10 @@ async function updateOrder(req: Request, body: { orderNumber: string; patch: Rec
 
   const patch = body.patch ?? {};
   const now = new Date().toISOString();
+  // Captured before anything mutates `order`, so "did this actually change?"
+  // stays answerable after the patch is applied.
+  const previousFulfillment = order.fulfillmentStatus;
+  const previousPayment = order.paymentStatus;
 
   // Supplier-availability decision. Recorded with who/when; a rejection
   // never advances the order into production, and a confirmation only moves
@@ -367,17 +382,39 @@ async function updateOrder(req: Request, body: { orderNumber: string; patch: Rec
     await audit(staff.email, `supplier_${decision.status}`, body.orderNumber);
   }
   const nextFulfillment = patch.fulfillmentStatus as string | undefined;
+  const nextPayment = patch.paymentStatus as string | undefined;
   if (nextFulfillment && nextFulfillment !== order.fulfillmentStatus) {
     order.tracking.push({ status: nextFulfillment, at: now });
     if (nextFulfillment === "production_started") order.productionStartedAt = now;
-    if (nextFulfillment === "supplier_dispatched") {
-      order.supplierDispatchedAt = now;
-      const email = dispatchedEmail(order.locale, body.orderNumber, (patch.trackingNumber as string) ?? order.trackingNumber);
-      const { sendEmail } = await import("../_shared/helpers.ts");
-      await sendEmail(order.customer.email, email.subject, email.html).catch(() => undefined);
+    if (nextFulfillment === "supplier_dispatched") order.supplierDispatchedAt = now;
+  }
+
+  // Apply the patch BEFORE emailing, so the message is built from the order
+  // as it will be stored — a tracking number entered in the same save is in
+  // the shipped email, and the customer never gets a mail describing a state
+  // that was not persisted.
+  Object.assign(order, patch);
+
+  /* ── customer status email ──────────────────────────────────────────────
+     Changing a status in Admin is the trigger. One milestone gets at most
+     one email ever (`deliverStatusEmail` checks the order's own ledger), a
+     failure is recorded instead of thrown, and nothing here can stop the
+     order update below from being written. */
+  const statusChanged =
+    (nextFulfillment && nextFulfillment !== previousFulfillment) || (nextPayment && nextPayment !== previousPayment);
+  if (statusChanged) {
+    try {
+      const event = eventForStatusChange({
+        ...(nextFulfillment && nextFulfillment !== previousFulfillment ? { fulfillmentStatus: nextFulfillment } : {}),
+        ...(nextPayment && nextPayment !== previousPayment ? { paymentStatus: nextPayment } : {}),
+      });
+      await deliverStatusEmail(order as unknown as Record<string, unknown>, event);
+    } catch (e) {
+      // Belt and braces: the sender does not throw, but an order update must
+      // never fail because of an email.
+      console.error("[admin-actions] customer status email failed:", e);
     }
   }
-  Object.assign(order, patch);
 
   await dbUpdate(`orders?order_number=eq.${encodeURIComponent(body.orderNumber)}`, {
     payment_status: order.paymentStatus,
@@ -387,6 +424,34 @@ async function updateOrder(req: Request, body: { orderNumber: string; patch: Rec
   await dbInsert("sheets_sync_log", { order_number: body.orderNumber, status: "pending" });
   await audit(staff.email, "order_updated", body.orderNumber, Object.keys(patch).join(","));
   return json({ ok: true, order });
+}
+
+/**
+ * Retries one customer status email that did not reach the customer.
+ *
+ * The idempotency rule is the same as everywhere else and is enforced here
+ * too, not just in the UI: a milestone already delivered is never sent
+ * again, however many times this is called.
+ */
+async function resendCustomerEmail(req: Request, body: { orderNumber: string; event: string }): Promise<Response> {
+  const staff = await requireStaff(req);
+  if (!CUSTOMER_EMAIL_EVENTS.includes(body.event as CustomerEmailEvent)) {
+    return json({ ok: false, message: "Unknown email type." }, 400);
+  }
+  const event = body.event as CustomerEmailEvent;
+  const rows = await dbSelect<{ data: Record<string, unknown> }>(`orders?select=data&order_number=eq.${encodeURIComponent(body.orderNumber)}`);
+  const order = rows[0]?.data;
+  if (!order) return json({ ok: false, message: "Order not found." }, 404);
+  if (alreadySent(order, event)) return json({ ok: false, message: "That email was already delivered — it is never sent twice." }, 409);
+
+  const record = await sendCustomerStatusEmail(order, event, readCustomerEmailConfig());
+  recordCustomerEmail(order, event, record);
+  await dbUpdate(`orders?order_number=eq.${encodeURIComponent(body.orderNumber)}`, { data: order });
+  await audit(staff.email, "customer_email_retried", body.orderNumber, `${event}=${record.status}`);
+  return json({
+    ok: record.status === "sent",
+    message: record.status === "sent" ? "Email sent." : `Not sent (${record.status}): ${record.error ?? "no detail"}`,
+  });
 }
 
 async function saveZones(req: Request, body: { zones: { id: string; active: boolean }[] }): Promise<Response> {

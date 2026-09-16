@@ -12,6 +12,7 @@ import type {
   AuditEntry,
   BadgeOption,
   Customer,
+  CustomerEmailEvent,
   DashboardStats,
   ImportRowResult,
   IssueReport,
@@ -50,6 +51,7 @@ import {
   validateBadgeCatalog,
 } from "../../lib/badges.ts";
 import { toCustomerOrder } from "../../lib/orders.ts";
+import { alreadySent, eventForStatusChange, nextAttempt, recordCustomerEmail, shouldSendCustomerEmail } from "../../lib/order-emails.ts";
 import { priceLine, priceSnapshot, cartSubtotal } from "../../lib/pricing.ts";
 import { discountableAmount, priceValidUntil, resolveSale } from "../../lib/sales.ts";
 import { merchandiseUnitValue, promotionSnapshot, resolvePromotion, validatePromotion, type PromotionLine } from "../../lib/promotions.ts";
@@ -364,6 +366,14 @@ export class DemoDataService implements DataService {
     // provider in demo mode, so nothing was sent and nothing pretends it
     // was. Production sends this from the place-order edge function.
     order.notification = { status: "disabled", lastAttemptAt: now, error: "Demo mode — owner email notifications are not sent" };
+    // Same for the customer's "order received" mail: recorded, not claimed.
+    order.customerEmails = recordCustomerEmail(order.customerEmails, "order_received", {
+      status: "disabled",
+      at: now,
+      attempts: 1,
+      to: input.customer.email,
+      error: "Demo mode — customer emails are not sent",
+    });
     this.audit("storefront", "order_created", orderNumber);
     this.save();
     // The stored order keeps everything the owner needs; the copy handed
@@ -606,12 +616,33 @@ export class DemoDataService implements DataService {
       }
       if (decided.status === "rejected" && !patch.fulfillmentStatus) patch.fulfillmentStatus = "supplier_unavailable";
     }
+    const previousFulfillment = order.fulfillmentStatus;
+    const previousPayment = order.paymentStatus;
     if (patch.fulfillmentStatus && patch.fulfillmentStatus !== order.fulfillmentStatus) {
       order.tracking.push({ status: patch.fulfillmentStatus, at: new Date().toISOString() });
       if (patch.fulfillmentStatus === "production_started") order.productionStartedAt = new Date().toISOString();
       if (patch.fulfillmentStatus === "supplier_dispatched") order.supplierDispatchedAt = new Date().toISOString();
     }
     Object.assign(order, patch);
+
+    // Customer status email. Production sends this from the admin-actions
+    // edge function; demo mode has no server and no provider, so it records
+    // the same ledger entry honestly as "disabled" rather than pretending a
+    // mail went out. The idempotency rule is identical: a milestone already
+    // delivered is never touched again.
+    const event = eventForStatusChange({
+      ...(patch.fulfillmentStatus && patch.fulfillmentStatus !== previousFulfillment ? { fulfillmentStatus: patch.fulfillmentStatus } : {}),
+      ...(patch.paymentStatus && patch.paymentStatus !== previousPayment ? { paymentStatus: patch.paymentStatus } : {}),
+    });
+    if (event && shouldSendCustomerEmail(order, event)) {
+      order.customerEmails = recordCustomerEmail(order.customerEmails, event, {
+        status: "disabled",
+        at: new Date().toISOString(),
+        attempts: nextAttempt(order, event),
+        to: order.customer.email,
+        error: "Demo mode — customer emails are not sent",
+      });
+    }
     this.audit(staff.email, "order_updated", orderNumber, JSON.stringify(Object.keys(patch)));
     this.save();
     return { ok: true, order };
@@ -625,6 +656,24 @@ export class DemoDataService implements DataService {
     this.audit(staff.email, "order_resync_requested", orderNumber);
     this.save();
     return { ok: true, message: "Demo mode: resync recorded locally. No external sync was performed (Google Sheets is not connected)." };
+  }
+
+  async adminResendCustomerEmail(orderNumber: string, event: CustomerEmailEvent) {
+    const staff = this.requireStaff();
+    const order = this.db.orders.find((o) => o.orderNumber === orderNumber);
+    if (!order) return { ok: false, message: "Order not found" };
+    // The rule is the same everywhere: a delivered milestone is final.
+    if (alreadySent(order, event)) return { ok: false, message: "That email was already delivered — it is never sent twice." };
+    order.customerEmails = recordCustomerEmail(order.customerEmails, event, {
+      status: "disabled",
+      at: new Date().toISOString(),
+      attempts: nextAttempt(order, event),
+      to: order.customer.email,
+      error: "Demo mode — customer emails are not sent",
+    });
+    this.audit(staff.email, "customer_email_retried", orderNumber, event);
+    this.save();
+    return { ok: true, message: "Demo mode: retry recorded locally. No email was sent (no provider is connected)." };
   }
 
   async adminListCustomers() {

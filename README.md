@@ -88,6 +88,11 @@ sandbox:build && npm run sandbox:serve` → http://localhost:4173.
   never fail a checkout; its real delivery state (`sent`/`failed`/
   `disabled`/`pending`) is stored on the order and shown in Admin, and is
   never reported as sent unless the provider accepted it.
+- Customer order-status emails (received, payment confirmed, processing,
+  shipped with tracking, out for delivery, delivered, cancelled, refunded)
+  fire from the Admin status change, in the order's own language, **once per
+  milestone ever** — recorded per order, retryable from Admin, and never able
+  to fail an order update.
 
 ## Documentation index
 

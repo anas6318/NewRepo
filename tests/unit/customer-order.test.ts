@@ -101,10 +101,20 @@ test("no owner-only value survives into a customer's view of their order", () =>
 
 test("each listed internal field is removed by name", () => {
   const view = toCustomerOrder(ORDER) as unknown as Record<string, unknown>;
-  for (const field of ["internalNotes", "supplierReference", "trackingNumber", "trackingUrl", "productionStartedAt", "supplierDispatchedAt", "notification"]) {
+  for (const field of [
+    "internalNotes",
+    "supplierReference",
+    "trackingNumber",
+    "trackingUrl",
+    "productionStartedAt",
+    "supplierDispatchedAt",
+    "notification",
+    "customerEmails",
+  ]) {
     assert.ok(!(field in view), `${field} is still present`);
   }
   assert.deepEqual([...CUSTOMER_HIDDEN_ORDER_FIELDS].sort(), [
+    "customerEmails",
     "internalNotes",
     "notification",
     "productionStartedAt",

@@ -13,7 +13,7 @@
  * response the customer gets.
  */
 import { audit, callerProfile, contactHash, db, dbInsert, dbSelect, dbUpdate, handleError, json, preflight } from "../_shared/helpers.ts";
-import { orderConfirmationEmail } from "../_shared/emails.ts";
+import { deliverStatusEmail } from "../_shared/customer-notifications.ts";
 import { sendOwnerOrderNotification, shouldSendOwnerNotification, type OwnerNotificationResult } from "../_shared/owner-notification.ts";
 import { toCustomerOrderData } from "../_shared/customer-order.ts";
 
@@ -520,6 +520,10 @@ Deno.serve(async (req) => {
       // between the insert and the attempt below, the order honestly reads
       // "pending" rather than claiming a notification that never happened.
       notification: { status: "pending" } as OwnerNotificationResult,
+      // Customer status-email ledger. Filled by the confirmation send below
+      // and by every later Admin status change; the key is the milestone, so
+      // a milestone can only ever be emailed once.
+      customerEmails: {} as Record<string, unknown>,
       isDemo: false,
     };
 
@@ -542,16 +546,18 @@ Deno.serve(async (req) => {
     }
     await audit("storefront", "order_created", orderNumber, `total=${total}`);
 
-    /* confirmation email — best effort, never blocks the order */
+    /* confirmation email — best effort, never blocks the order.
+       Recorded in the order's own email ledger, so Admin can see whether it
+       arrived and re-send it, and so no later trigger ever sends the
+       "order received" mail a second time. */
     try {
-      const email = orderConfirmationEmail(body.locale, {
-        orderNumber,
-        totalIls: total,
-        bankInstructions: isBank ? settings.bankTransferInstructions?.[body.locale] : undefined,
+      await deliverStatusEmail(orderData as unknown as Record<string, unknown>, "order_received", undefined, {
+        ...(isBank && settings.bankTransferInstructions?.[body.locale]
+          ? { bankInstructions: settings.bankTransferInstructions[body.locale] }
+          : {}),
       });
-      await sendEmailSafe(c.email, email.subject, email.html);
     } catch (e) {
-      console.error("[place-order] email failed:", e);
+      console.error("[place-order] confirmation email failed:", e);
     }
 
     /* ── owner order alert ──────────────────────────────────────────────
@@ -595,8 +601,3 @@ Deno.serve(async (req) => {
     return handleError(err);
   }
 });
-
-async function sendEmailSafe(to: string, subject: string, html: string): Promise<void> {
-  const { sendEmail } = await import("../_shared/helpers.ts");
-  await sendEmail(to, subject, html);
-}
