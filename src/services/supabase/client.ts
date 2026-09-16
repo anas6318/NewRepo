@@ -15,6 +15,23 @@ export interface SbSession {
   user: { id: string; email?: string };
 }
 
+/**
+ * Reads the `sub`/`email` claims out of an access token so a recovery session
+ * has the same shape as a normal one. The signature is NOT verified here and
+ * never needs to be — every privileged read is still checked server-side by
+ * RLS. The token itself is never logged or returned.
+ */
+function readTokenClaims(accessToken: string): { sub: string; email?: string } {
+  try {
+    const payload = accessToken.split(".")[1] ?? "";
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const claims = JSON.parse(json) as { sub?: string; email?: string };
+    return { sub: String(claims.sub ?? ""), ...(claims.email ? { email: claims.email } : {}) };
+  } catch {
+    return { sub: "" };
+  }
+}
+
 export class SupabaseClient {
   readonly url: string;
   readonly anonKey: string;
@@ -107,6 +124,54 @@ export class SupabaseClient {
     const next = (await res.json()) as SbSession;
     this.saveSession(next);
     return next;
+  }
+
+  /**
+   * Sends a password-recovery email (GoTrue POST /auth/v1/recover).
+   *
+   * Deliberately reports success for every well-formed request: GoTrue itself
+   * returns 200 for unknown addresses, and this method must never let the
+   * caller distinguish "sent" from "no such account". Errors are swallowed for
+   * the same reason — a 4xx here would otherwise be an enumeration oracle.
+   */
+  async resetPasswordForEmail(email: string, redirectTo: string): Promise<{ ok: true }> {
+    try {
+      await fetch(`${this.url}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`, {
+        method: "POST",
+        headers: this.headers(false),
+        body: JSON.stringify({ email }),
+      });
+    } catch {
+      /* network failure is not an account-existence signal either */
+    }
+    return { ok: true };
+  }
+
+  /**
+   * Adopts the short-lived session carried by a recovery link so the following
+   * `updateUser` call is authorized. The tokens are persisted exactly like a
+   * normal sign-in and are never logged.
+   */
+  adoptRecoverySession(tokens: { accessToken: string; refreshToken: string; expiresAt: number }): void {
+    const claims = readTokenClaims(tokens.accessToken);
+    this.saveSession({
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      expires_at: tokens.expiresAt,
+      user: { id: claims.sub, ...(claims.email ? { email: claims.email } : {}) },
+    });
+  }
+
+  /** GoTrue PUT /auth/v1/user — the only place a new password is set. */
+  async updateUser(attributes: { password: string }): Promise<{ error?: string }> {
+    const res = await fetch(`${this.url}/auth/v1/user`, {
+      method: "PUT",
+      headers: this.headers(),
+      body: JSON.stringify(attributes),
+    });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) return { error: String(body.error_description ?? body.msg ?? "update_failed") };
+    return {};
   }
 
   async signOut(): Promise<void> {

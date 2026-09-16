@@ -10,6 +10,7 @@
  * (no external network). Run the smoke steps in docs/deployment-guide.md §4
  * against a real project before relying on it — see docs/test-report.md.
  */
+import { parseRecoveryFragment } from "../../lib/auth-recovery.ts";
 import type { DataService, PlaceOrderInput, PlaceOrderResult, SessionInfo } from "../DataService.ts";
 import type {
   AuditEntry,
@@ -193,6 +194,41 @@ export class SupabaseDataService implements DataService {
 
   async logout() {
     await this.sb.signOut();
+  }
+
+  /* ── password recovery ── */
+
+  /**
+   * Fire-and-forget by design. Whatever happens — unknown address, rate limit,
+   * network failure — the caller is told the same thing, so the form can never
+   * be used to test which emails have accounts.
+   */
+  async requestPasswordReset(email: string, redirectTo: string): Promise<{ ok: true }> {
+    const trimmed = email.trim();
+    if (this.sb.configured && trimmed) {
+      await this.sb.resetPasswordForEmail(trimmed, redirectTo);
+    }
+    return { ok: true };
+  }
+
+  async beginPasswordRecovery(hash: string) {
+    const parsed = parseRecoveryFragment(hash);
+    if (!parsed.ok) return { ok: false, error: parsed.error };
+    this.sb.adoptRecoverySession(parsed.tokens);
+    return { ok: true };
+  }
+
+  async updatePassword(newPassword: string) {
+    try {
+      const { error } = await this.guard().updateUser({ password: newPassword });
+      if (error) return { ok: false, error };
+      // The recovery session has served its purpose; make the user sign in
+      // again with the password they just chose.
+      await this.sb.signOut();
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "network_error" };
+    }
   }
 
   /* ── wishlist ── */

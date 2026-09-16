@@ -90,6 +90,8 @@ Disallow: /*/account
 Disallow: /*/wishlist
 Disallow: /*/login
 Disallow: /*/register
+Disallow: /*/forgot-password
+Disallow: /*/reset-password
 
 Sitemap: ${SITE}/sitemap.xml
 `,

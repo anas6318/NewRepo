@@ -7,6 +7,7 @@
  * Payment behavior in demo mode is SIMULATED and labeled as such in the UI;
  * it never claims to be a genuine transaction.
  */
+import { PASSWORD_MIN_LENGTH } from "../../lib/auth-recovery.ts";
 import type { DataService, PlaceOrderInput, PlaceOrderResult, SessionInfo } from "../DataService.ts";
 import type {
   AuditEntry,
@@ -471,6 +472,28 @@ export class DemoDataService implements DataService {
 
   async logout() {
     this.writeSession({ customer: null });
+  }
+
+  /* ── password recovery (simulated) ──
+   * Demo mode has no mail server and no password store — demo logins use the
+   * fixed DEMO_CREDENTIALS. These methods therefore exercise the UI flow
+   * end to end without sending anything, storing anything, or ever revealing
+   * whether an address belongs to a demo account. */
+
+  async requestPasswordReset(_email: string, _redirectTo: string): Promise<{ ok: true }> {
+    return { ok: true };
+  }
+
+  async beginPasswordRecovery(_hash: string) {
+    // The demo build has no recovery link to validate, so the form is shown.
+    return { ok: true };
+  }
+
+  async updatePassword(newPassword: string) {
+    // Deliberately not persisted: demo credentials are fixed and no password
+    // is ever written to localStorage.
+    if (newPassword.length < PASSWORD_MIN_LENGTH) return { ok: false, error: "weak_password" };
+    return { ok: true };
   }
 
   /* ── wishlist ── */

@@ -91,6 +91,14 @@ export interface DataService {
   register(name: string, email: string, password: string): Promise<{ ok: boolean; error?: string; customer?: Customer }>;
   logout(): Promise<void>;
 
+  /* password recovery — see src/lib/auth-recovery.ts for the shared rules */
+  /** Always resolves ok: the caller must never learn whether the account exists. */
+  requestPasswordReset(email: string, redirectTo: string): Promise<{ ok: true }>;
+  /** Adopts the session carried by a recovery link (the raw URL fragment). */
+  beginPasswordRecovery(hash: string): Promise<{ ok: boolean; error?: string }>;
+  /** Sets the new password for the recovered session, then ends that session. */
+  updatePassword(newPassword: string): Promise<{ ok: boolean; error?: string }>;
+
   /* wishlist (account-backed; guest wishlist lives in the local store) */
   getWishlist(customerId: string): Promise<string[]>;
   setWishlist(customerId: string, slugs: string[]): Promise<void>;

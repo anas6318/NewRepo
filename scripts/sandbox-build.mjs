@@ -14,16 +14,32 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const ESBUILD_CANDIDATES = [
-  join(root, "node_modules", "@esbuild", "linux-x64", "bin", "esbuild"),
-  join(root, "node_modules", ".bin", "esbuild"),
-  "/home/claude/.npm-global/lib/node_modules/tsx/node_modules/@esbuild/linux-x64/bin/esbuild",
-];
+// Windows ships esbuild as a .exe and the npm shim as .cmd; the extensionless
+// node_modules/.bin/esbuild there is a POSIX shell script that spawnSync
+// cannot execute, so Windows candidates must come FIRST.
+const WINDOWS = process.platform === "win32";
+const ESBUILD_CANDIDATES = WINDOWS
+  ? [
+      join(root, "node_modules", "@esbuild", "win32-x64", "esbuild.exe"),
+      join(root, "node_modules", "@esbuild", "win32-arm64", "esbuild.exe"),
+      join(root, "node_modules", ".bin", "esbuild.exe"),
+      join(root, "node_modules", ".bin", "esbuild.cmd"),
+    ]
+  : [
+      join(root, "node_modules", "@esbuild", `${process.platform}-${process.arch}`, "bin", "esbuild"),
+      join(root, "node_modules", "@esbuild", "linux-x64", "bin", "esbuild"),
+      join(root, "node_modules", ".bin", "esbuild"),
+      "/home/claude/.npm-global/lib/node_modules/tsx/node_modules/@esbuild/linux-x64/bin/esbuild",
+    ];
 const GLOBAL_NODE_MODULES = "/home/claude/.npm-global/lib/node_modules";
 
 const esbuild = ESBUILD_CANDIDATES.find((p) => existsSync(p));
 if (!esbuild) {
-  console.error("No esbuild binary found. On a normal machine run `npm install` and use `npm run build` (Vite) instead.");
+  console.error(
+    `No esbuild binary found for ${process.platform}-${process.arch}. Looked in:\n` +
+      ESBUILD_CANDIDATES.map((c) => `  ${c}`).join("\n") +
+      "\nRun `npm install`, or use `npm run build` (Vite) instead.",
+  );
   process.exit(1);
 }
 
@@ -52,6 +68,12 @@ if (existsSync(GLOBAL_NODE_MODULES) && !existsSync(join(root, "node_modules", "r
 
 const started = Date.now();
 const result = spawnSync(esbuild, args, { stdio: "inherit", env, cwd: root });
+if (result.error) {
+  // Previously this fell through to the status check and exited 1 printing
+  // nothing at all, which is impossible to diagnose from a terminal.
+  console.error(`Could not run esbuild at ${esbuild}: ${result.error.message}`);
+  process.exit(1);
+}
 if (result.status !== 0) process.exit(result.status ?? 1);
 
 // Static assets

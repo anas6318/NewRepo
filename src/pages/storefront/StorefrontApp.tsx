@@ -17,7 +17,7 @@ import { CartPage } from "./CartPage.tsx";
 import { CheckoutPage } from "./CheckoutPage.tsx";
 import { ConfirmationPage } from "./ConfirmationPage.tsx";
 import { TrackOrderPage } from "./TrackOrderPage.tsx";
-import { LoginPage, RegisterPage } from "./AuthPages.tsx";
+import { ForgotPasswordPage, LoginPage, RegisterPage, ResetPasswordPage } from "./AuthPages.tsx";
 import { AccountPage } from "./AccountPage.tsx";
 import { SizeGuidePage } from "./SizeGuidePage.tsx";
 import { AboutPage, HowItWorksPage, DeliveryPage, FaqPage, ContactPage } from "./InfoPages.tsx";
@@ -40,6 +40,8 @@ export function StorefrontApp({ locale }: { locale: Locale }) {
     { path: `${L}/track`, element: () => <TrackOrderPage /> },
     { path: `${L}/login`, element: () => <LoginPage /> },
     { path: `${L}/register`, element: () => <RegisterPage /> },
+    { path: `${L}/forgot-password`, element: () => <ForgotPasswordPage /> },
+    { path: `${L}/reset-password`, element: () => <ResetPasswordPage /> },
     { path: `${L}/account`, element: () => <AccountPage tab="profile" /> },
     { path: `${L}/account/orders`, element: () => <AccountPage tab="orders" /> },
     { path: `${L}/account/orders/:orderNumber`, element: (p) => <AccountPage tab="order-detail" orderNumber={p.orderNumber} /> },

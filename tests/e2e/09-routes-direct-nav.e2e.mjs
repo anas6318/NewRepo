@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 
 const STOREFRONT_PATHS = [
   "", "/shop", "/category/retro", "/product/crimson-2005", "/search", "/wishlist", "/cart",
-  "/checkout", "/track", "/login", "/register", "/size-guide", "/about", "/how-it-works",
+  "/checkout", "/track", "/login", "/register", "/forgot-password", "/reset-password",
+  "/size-guide", "/about", "/how-it-works",
   "/delivery", "/faq", "/reviews", "/contact", "/policies/returns", "/policies/privacy",
   "/policies/terms", "/accessibility", "/maintenance",
 ];

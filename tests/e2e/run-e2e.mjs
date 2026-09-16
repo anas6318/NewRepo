@@ -7,6 +7,7 @@
  */
 import { spawn, spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "../../scripts/pw.mjs";
@@ -21,14 +22,33 @@ const skipBuild = args.includes("--skip-build");
 const filter = args.find((a) => !a.startsWith("--"));
 
 if (!skipBuild) {
-  const build = spawnSync("node", [join(root, "scripts", "sandbox-build.mjs")], { stdio: "inherit", cwd: root });
-  if (build.status !== 0) process.exit(1);
+  // process.execPath, not "node": on Windows a bare "node" can fail to spawn,
+  // and the failure used to exit silently with no output at all.
+  const build = spawnSync(process.execPath, [join(root, "scripts", "sandbox-build.mjs")], { stdio: "inherit", cwd: root });
+  if (build.error) {
+    console.error(`Could not start the sandbox build: ${build.error.message}`);
+    process.exit(1);
+  }
+  if (build.status !== 0) {
+    console.error(`Sandbox build failed (exit ${build.status}). No specs were run.`);
+    process.exit(1);
+  }
 }
 
-const server = spawn("node", [join(root, "scripts", "serve.mjs"), join(root, "dist"), String(PORT)], { stdio: "ignore" });
+const server = spawn(process.execPath, [join(root, "scripts", "serve.mjs"), join(root, "dist"), String(PORT)], { stdio: "ignore" });
 await new Promise((r) => setTimeout(r, 700));
 
-const browser = await chromium.launch();
+let browser;
+try {
+  browser = await chromium.launch();
+} catch (err) {
+  server.kill();
+  console.error(
+    `Could not launch Chromium: ${String(err).slice(0, 300)}\n` +
+      "Playwright's browser binary is not installed. Run:\n  npx playwright install chromium",
+  );
+  process.exit(1);
+}
 let passed = 0;
 let failed = 0;
 const failures = [];
@@ -48,6 +68,13 @@ const specFiles = readdirSync(here)
   .filter((f) => f.endsWith(".e2e.mjs") && (!filter || f.includes(filter)))
   .sort();
 
+if (specFiles.length === 0) {
+  console.error(filter ? `No spec files matched "${filter}".` : "No spec files found.");
+  await browser.close();
+  server.kill();
+  process.exit(1);
+}
+
 for (const file of specFiles) {
   const mod = await import(pathToFileURL(join(here, file)).href);
   for (const [name, fn] of Object.entries(mod)) {
@@ -64,7 +91,7 @@ for (const file of specFiles) {
       failures.push({ label, err: String(err).slice(0, 500) });
       console.log(`✗ ${label}\n   ${String(err).slice(0, 300)}`);
       try {
-        await page.screenshot({ path: `/tmp/e2e-fail-${failed}.png` });
+        await page.screenshot({ path: join(tmpdir(), `e2e-fail-${failed}.png`) });
       } catch {
         /* ignore */
       }

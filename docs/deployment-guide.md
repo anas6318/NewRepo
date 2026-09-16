@@ -13,6 +13,26 @@
 3. Staging/dev only: run `supabase/seed.sql` (demo-labeled data — never in
    production).
 4. Auth → URL configuration: set site URL + redirect URLs to your domain.
+   **Password recovery needs the three localized reset pages in the redirect
+   allow-list**, or Supabase silently sends the user to the Site URL instead
+   of the reset form:
+
+   ```
+   Site URL:       https://yourdomain.tld
+   Redirect URLs:  https://yourdomain.tld/ar/reset-password
+                   https://yourdomain.tld/he/reset-password
+                   https://yourdomain.tld/en/reset-password
+   ```
+
+   A single wildcard (`https://yourdomain.tld/*`) also works. The app builds
+   the `redirect_to` value itself from `window.location.origin` plus the
+   active locale (`src/lib/auth-recovery.ts` → `resetRedirectUrl`), so it is
+   always same-origin and always the language the visitor was already using.
+
+   Also check **Auth → Emails → Reset Password**: the default template is
+   English-only. Supabase sends one template for every locale, so either keep
+   it neutral or write it trilingually — the *page* the link lands on is
+   already localized, the email is not.
 5. Copy the project URL + anon key (frontend) — the service-role key is
    used only by edge functions (auto-injected there).
 
