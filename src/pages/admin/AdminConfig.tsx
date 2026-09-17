@@ -64,8 +64,8 @@ export function AdminShipping() {
 
   const save = async () => {
     for (const z of zones) {
-      if (z.priceIls < 35 || z.priceIls > 55) {
-        toast.push(`Zone "${z.name.en}": delivery price must stay within ₪35–₪55 (spec §12).`, "error");
+      if (z.priceIls < 35 || z.priceIls > 60) {
+        toast.push(`Zone "${z.name.en}": delivery price must stay within ₪35–₪60 (spec §12).`, "error");
         return;
       }
     }
@@ -95,7 +95,7 @@ export function AdminShipping() {
           </button>
         </div>
       </div>
-      <p className="text-sm text-muted">Local delivery fee must stay within ₪35–₪55. Free delivery applies automatically at 3+ qualifying items regardless of zone.</p>
+      <p className="text-sm text-muted">Local delivery fee must stay within ₪35–₪60. Free delivery applies automatically at 3+ qualifying items regardless of zone.</p>
       {zones.map((zone, i) => (
         <section key={zone.id} className="card stack" aria-label={zone.name.en}>
           <div className="row row--between row--wrap">
@@ -107,8 +107,8 @@ export function AdminShipping() {
           <LField label="Zone name" value={zone.name} onChange={(name) => set(i, { name })} />
           <div className="form-grid">
             <label className="field">
-              <span className="field__label">Delivery price (₪35–₪55)</span>
-              <input className="input num" type="number" min={35} max={55} value={zone.priceIls} onChange={(e) => set(i, { priceIls: Number(e.target.value) })} />
+              <span className="field__label">Delivery price (₪35–₪60)</span>
+              <input className="input num" type="number" min={35} max={60} value={zone.priceIls} onChange={(e) => set(i, { priceIls: Number(e.target.value) })} />
             </label>
             <label className="field">
               <span className="field__label">Local ETA (days)</span>
