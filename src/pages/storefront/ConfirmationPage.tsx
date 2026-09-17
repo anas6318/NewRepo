@@ -43,7 +43,9 @@ export function ConfirmationPage({ orderNumber }: { orderNumber: string }) {
           <IconCheck size={26} />
         </span>
         <h1 className="section__title">{t("confirmation.title")}</h1>
-        <p className="text-muted">{t("confirmation.body")}</p>
+        {/* confirmation.body carries an {orderNumber} placeholder — it must be
+            interpolated, or the customer is shown the raw token. */}
+        <p className="text-muted">{t("confirmation.body", { orderNumber })}</p>
         <p className="confirm-number">
           <span className="text-xs upper text-muted">{t("tracking.orderNumber")}</span>
           <bdi>{orderNumber}</bdi>

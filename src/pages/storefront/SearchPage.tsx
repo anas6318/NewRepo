@@ -9,6 +9,7 @@ import type { Product } from "../../services/types.ts";
 import { CatalogResults } from "../../components/product/CatalogGrid.tsx";
 import { useL } from "../../components/ui/bits.tsx";
 import { IconSearch } from "../../components/ui/Icons.tsx";
+import { SafeImage } from "../../components/ui/SafeImage.tsx";
 
 export function SearchPage() {
   const { locale, t } = useI18n();
@@ -129,7 +130,7 @@ export function SearchPage() {
             {suggestions.map((p, i) => (
               <li key={p.id} role="option" id={`sugg-${i}`} aria-selected={i === highlight}>
                 <Link to={`/${locale}/product/${p.slug}`} className={`search-sugg${i === highlight ? " is-active" : ""}`}>
-                  <img src={coverImage(p)?.src ?? ""} alt="" width={40} height={50} />
+                  <SafeImage src={coverImage(p)?.src ?? ""} alt="" width={40} height={50} />
                   <span>{L(p.name)}</span>
                   <bdi className="text-muted">₪{p.basePriceIls}</bdi>
                 </Link>

@@ -9,7 +9,8 @@
  * save-settings, dashboard, list-badges, save-badges, list-promotions,
  * save-promotions.
  */
-import { audit, dbInsert, dbSelect, dbUpdate, db, handleError, HttpError, json, preflight, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
+import { audit, dbInsert, dbSelect, dbUpdate, dbUpsert, db, handleError, HttpError, json, preflight, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
+import { patchMatchedNoRows, zonePriceProblem } from "../_shared/zones.ts";
 import {
   alreadySent,
   CUSTOMER_EMAIL_EVENTS,
@@ -458,15 +459,25 @@ async function saveZones(req: Request, body: { zones: { id: string; active: bool
   const staff = await requireStaff(req);
   for (const zone of body.zones ?? []) {
     const z = zone as { id: string; active: boolean; priceIls?: number } & Record<string, unknown>;
-    const price = Number((z as { priceIls?: number }).priceIls);
-    if (Number.isFinite(price) && (price < 35 || price > 55)) throw new HttpError(400, "zone_price_out_of_range");
+    // Server-side and authoritative: the Admin UI check is a courtesy.
+    if (zonePriceProblem((z as { priceIls?: number }).priceIls)) throw new HttpError(400, "zone_price_out_of_range");
+
+    // PATCH asking for the affected rows back. Without return=representation
+    // PostgREST answers 204 with an empty body, which the previous version
+    // read as "row missing" and followed with an INSERT — so the second save
+    // of any existing zone failed on a duplicate key. patchMatchedNoRows()
+    // distinguishes "nothing matched" from "succeeded, said nothing".
     const res = await db(`shipping_zones?id=eq.${encodeURIComponent(z.id)}`, {
       method: "PATCH",
       body: JSON.stringify({ active: z.active, data: z }),
+      headers: { Prefer: "return=representation" },
     });
     if (!res.ok) throw new Error(await res.text());
-    const txt = await res.text();
-    if (!txt || txt === "[]") await dbInsert("shipping_zones", { id: z.id, active: z.active, data: z });
+    if (patchMatchedNoRows(res.status, await res.text())) {
+      // Genuinely a new zone. merge-duplicates keeps this safe even if two
+      // admins save at once, rather than racing into a duplicate-key error.
+      await dbUpsert("shipping_zones", { id: z.id, active: z.active, data: z });
+    }
   }
   await audit(staff.email, "zones_saved", `${body.zones?.length ?? 0} zones`);
   return json({ ok: true });

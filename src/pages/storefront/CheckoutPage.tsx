@@ -3,6 +3,7 @@
  * summary with no hidden fees. Totals recompute server-side on placement. */
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "../../lib/router.tsx";
+import { localizeIssues } from "../../lib/form-errors.ts";
 import { useI18n } from "../../lib/i18n/index.tsx";
 import { usePageMeta } from "../../lib/seo.tsx";
 import { dataService, isDemoMode } from "../../services/index.ts";
@@ -17,6 +18,7 @@ import { EmptyState, Price, useL } from "../../components/ui/bits.tsx";
 import { IconBag } from "../../components/ui/Icons.tsx";
 import { formatBadgeAdjustment } from "../../lib/badges.ts";
 import { PromotionLine } from "../../components/cart/PromotionSummary.tsx";
+import { SafeImage } from "../../components/ui/SafeImage.tsx";
 
 const checkoutSchema = s.object({
   name: s.string().trim().min(2).max(60),
@@ -28,7 +30,7 @@ const checkoutSchema = s.object({
 });
 
 export function CheckoutPage() {
-  const { locale, t } = useI18n();
+  const { locale, t, has } = useI18n();
   const L = useL();
   const navigate = useNavigate();
   const cart = useCart();
@@ -89,7 +91,7 @@ export function CheckoutPage() {
     setServerError(null);
     const parsed = checkoutSchema.safeParse(fields);
     const map: Record<string, string> = {};
-    if (!parsed.success) for (const issue of parsed.issues) map[issue.path] = translateIssue(issue.message, t);
+    if (!parsed.success) Object.assign(map, localizeIssues(parsed.issues, t));
     if (!zoneId) map.zone = t("checkout.selectZone");
     if (!method) map.method = t("checkout.selectPayment");
     if (!policyAck) map.policyAck = t("checkout.policyAckRequired");
@@ -102,27 +104,41 @@ export function CheckoutPage() {
     setSubmitting(true);
     track("add_shipping_info", { zone: zoneId });
     track("add_payment_info", { method });
-    const res = await dataService().placeOrder({
-      locale,
-      customer: parsed.data,
-      zoneId,
-      paymentMethod: method as PaymentMethodId,
-      lines: cart.lines.map((l) => ({
-        productId: l.productId,
-        version: l.version,
-        sleeve: l.sleeve,
-        size: l.size,
-        personalization: l.personalization,
-        // Only the badge id is sent. The server resolves the price itself.
-        badgeId: l.badge?.badgeId ?? l.patchId,
-        quantity: l.quantity,
-      })),
-      marketingConsent: consent,
-    });
+    let res: Awaited<ReturnType<ReturnType<typeof dataService>["placeOrder"]>>;
+    try {
+      res = await dataService().placeOrder({
+        locale,
+        customer: parsed.data,
+        zoneId,
+        paymentMethod: method as PaymentMethodId,
+        lines: cart.lines.map((l) => ({
+          productId: l.productId,
+          version: l.version,
+          sleeve: l.sleeve,
+          size: l.size,
+          personalization: l.personalization,
+          // Only the badge id is sent. The server resolves the price itself.
+          badgeId: l.badge?.badgeId ?? l.patchId,
+          quantity: l.quantity,
+        })),
+        marketingConsent: consent,
+      });
+    } catch {
+      // A thrown network/transport error must read as a failed order, never
+      // as a silent no-op. The form keeps everything the customer typed.
+      setSubmitting(false);
+      setServerError(t("checkout.error_generic"));
+      document.getElementById("checkout-errors")?.focus();
+      return;
+    }
     setSubmitting(false);
 
     if (!res.ok || !res.orderNumber) {
-      setServerError(t(`checkout.error_${res.error ?? "generic"}`, {}) || t("common.error"));
+      // A backend code this build has no wording for must degrade to the
+      // generic message. `t()` echoes an unknown key back as a string, so a
+      // `||` fallback never fires — the key has to be checked first.
+      const key = `checkout.error_${res.error ?? "generic"}`;
+      setServerError(has(key) ? t(key) : t("checkout.error_generic"));
       return;
     }
     track("purchase", { value: res.order?.totalIls ?? cart.subtotalIls, order: res.orderNumber, method });
@@ -279,7 +295,7 @@ export function CheckoutPage() {
           <ul className="stack stack--sm" style={{ listStyle: "none", padding: 0 }}>
             {cart.lines.map((line) => (
               <li key={line.key} className="row" style={{ alignItems: "flex-start" }}>
-                <img src={line.image} alt="" width={48} height={60} style={{ borderRadius: "var(--r-xs)", objectFit: "cover" }} />
+                <SafeImage src={line.image} alt="" width={48} height={60} style={{ borderRadius: "var(--r-xs)", objectFit: "cover" }} />
                 <div style={{ flex: 1 }}>
                   <p className="text-sm" style={{ fontWeight: 600 }}>
                     {L(line.title)} ×{line.quantity}
@@ -339,9 +355,4 @@ export function CheckoutPage() {
   );
 }
 
-function translateIssue(message: string, t: (k: string) => string): string {
-  if (message === "Required") return t("errors.required");
-  if (message === "Invalid email address") return t("errors.invalidEmail");
-  if (message === "Invalid phone number") return t("errors.invalidPhone");
-  return message;
-}
+

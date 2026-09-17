@@ -15,7 +15,7 @@ export function ProductCard({ product, eager }: { product: Product; eager?: bool
   const wishlist = useWishlist();
   const inWishlist = wishlist.has(product.slug);
   const media = productMedia(product);
-  const { view, wantReal, hoverCapable, choose, preview, prefetchReal } = useMediaView(media, product.slug);
+  const { view, pending, realStatus, hoverCapable, choose, preview, prefetchReal } = useMediaView(media, product.slug);
   const category = t(`nav.${categoryNavKey(product.categorySlug)}`);
   // Resolved against the base price, which is exactly what the card shows —
   // so the struck-through figure is the product's real regular price and the
@@ -56,7 +56,7 @@ export function ProductCard({ product, eager }: { product: Product; eager?: bool
         <MediaFrame
           media={media}
           view={view}
-          wantReal={wantReal}
+          realStatus={realStatus}
           {...(eager ? { eager } : {})}
           fallback={<div className="prod-card__noimg" aria-hidden="true">CROWNED</div>}
         />
@@ -75,7 +75,7 @@ export function ProductCard({ product, eager }: { product: Product; eager?: bool
         />
         <div className="prod-card__media-ui">
           <MediaLabel media={media} />
-          <MediaToggle media={media} view={view} onSelect={choose} onPrefetch={prefetchReal} />
+          <MediaToggle media={media} view={view} pending={pending} realStatus={realStatus} onSelect={choose} onPrefetch={prefetchReal} />
         </div>
         <div className="prod-card__badges">
           {product.isDemo && <DemoBadge />}

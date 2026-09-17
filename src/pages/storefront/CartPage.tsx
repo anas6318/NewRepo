@@ -8,6 +8,7 @@ import { EmptyState, Price, useL } from "../../components/ui/bits.tsx";
 import { IconBag, IconMinus, IconPlus, IconTrash } from "../../components/ui/Icons.tsx";
 import { formatBadgeAdjustment } from "../../lib/badges.ts";
 import { PromotionLine, PromotionProgress } from "../../components/cart/PromotionSummary.tsx";
+import { SafeImage } from "../../components/ui/SafeImage.tsx";
 
 export function CartPage() {
   const { locale, t } = useI18n();
@@ -45,7 +46,7 @@ export function CartPage() {
             {cart.lines.map((line) => (
               <li key={line.key} className="cart-line">
                 <Link to={`/${locale}/product/${line.slug}`}>
-                  <img src={line.image} alt="" width={88} height={110} className="cart-line__img" style={{ width: 88, height: 110 }} />
+                  <SafeImage src={line.image} alt="" width={88} height={110} className="cart-line__img" style={{ width: 88, height: 110 }} />
                 </Link>
                 <div className="cart-line__body">
                   <p className="cart-line__title">

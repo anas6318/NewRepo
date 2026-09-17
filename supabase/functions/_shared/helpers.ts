@@ -55,6 +55,20 @@ export async function dbInsert(table: string, rows: unknown): Promise<void> {
   if (!res.ok) throw new Error(`db insert failed: ${res.status} ${await res.text()}`);
 }
 
+/**
+ * Insert-or-update on the primary key, in ONE request. Used where a caller
+ * would otherwise read-then-write and race, or mistake a quiet successful
+ * update for a missing row.
+ */
+export async function dbUpsert(table: string, rows: unknown): Promise<void> {
+  const res = await db(table, {
+    method: "POST",
+    body: JSON.stringify(rows),
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+  });
+  if (!res.ok) throw new Error(`db upsert failed: ${res.status} ${await res.text()}`);
+}
+
 export async function dbUpdate(path: string, patch: unknown): Promise<void> {
   const res = await db(path, { method: "PATCH", body: JSON.stringify(patch) });
   if (!res.ok) throw new Error(`db update failed: ${res.status} ${await res.text()}`);

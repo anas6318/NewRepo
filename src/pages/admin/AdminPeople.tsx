@@ -4,6 +4,7 @@ import { dataService } from "../../services/index.ts";
 import { useToast } from "../../services/store.tsx";
 import { Stars } from "../../components/ui/bits.tsx";
 import type { Customer, Review } from "../../services/types.ts";
+import { SafeImage } from "../../components/ui/SafeImage.tsx";
 
 export function AdminCustomers() {
   const [customers, setCustomers] = useState<Customer[] | null>(null);
@@ -110,7 +111,7 @@ export function AdminReviews() {
             <p className="text-sm text-muted" dir={r.locale === "en" ? "ltr" : "rtl"} lang={r.locale}>
               {r.body}
             </p>
-            {r.photo && <img src={r.photo} alt="review upload" style={{ width: 120, borderRadius: "var(--r-sm)" }} />}
+            {r.photo && <SafeImage src={r.photo} alt="review upload" style={{ width: 120, borderRadius: "var(--r-sm)" }} />}
             <p className="text-xs text-muted">
               {r.displayName} · {r.locale} · {r.productSlug ?? "store"} · {new Date(r.createdAt).toLocaleDateString("en-GB")}
               {r.isDemo && (

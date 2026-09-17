@@ -19,7 +19,7 @@ import type {
   SaleType,
 } from "../../services/types.ts";
 import { productBadgeSettings, resolveProductBadges } from "../../lib/badges.ts";
-import { coverImage, orderImages, productMedia, setRoleImage } from "../../lib/media.ts";
+import { coverImage, imageUrlProblem, imageUrlProblemMessage, orderImages, productImageIssues, productMedia, setRoleImage } from "../../lib/media.ts";
 import { DEFAULT_TIMEZONE, productDiscountable, resolveSale, saleStatus, validateSale } from "../../lib/sales.ts";
 import { demoCategories, ADULT_SIZES, KIDS_SIZES } from "../../services/demo/seed-data.ts";
 import {
@@ -31,6 +31,7 @@ import {
   SIZE_RULES,
   sizeKey,
 } from "../../services/sizing.ts";
+import { SafeImage } from "../../components/ui/SafeImage.tsx";
 
 export function AdminProducts() {
   const [products, setProducts] = useState<Product[] | null>(null);
@@ -110,7 +111,7 @@ export function AdminProducts() {
               <tr key={p.id}>
                 <td>
                   <div className="row">
-                    {coverImage(p)?.src && <img src={coverImage(p)!.src} alt="" width={36} height={45} style={{ borderRadius: 4, objectFit: "cover" }} />}
+                    {coverImage(p)?.src && <SafeImage src={coverImage(p)!.src} alt="" width={36} height={45} style={{ borderRadius: 4, objectFit: "cover" }} />}
                     <div>
                       <strong>{p.name.en}</strong>
                       <br />
@@ -195,6 +196,8 @@ export function AdminProductEdit({ id }: { id: string }) {
   const toast = useToast();
   const isNew = id === "new";
 
+  const [imageErrors, setImageErrors] = useState<string[]>([]);
+
   useEffect(() => {
     document.title = "Edit product · CROWNED admin";
     if (isNew) {
@@ -218,6 +221,16 @@ export function AdminProductEdit({ id }: { id: string }) {
       toast.push("Slug, English name and a positive price are required.", "error");
       return;
     }
+    // A local file path looks right on the machine that typed it and is a
+    // broken image for every customer. Refuse before save, and say why —
+    // never silently rewrite what the owner pasted.
+    const imageIssues = productImageIssues(product.images);
+    if (imageIssues.length) {
+      toast.push(imageIssues[0]!, "error");
+      setImageErrors(imageIssues);
+      return;
+    }
+    setImageErrors([]);
     const res = await dataService().adminSaveProduct(product);
     if (res.ok) {
       toast.push("Saved");
@@ -248,6 +261,19 @@ export function AdminProductEdit({ id }: { id: string }) {
           </button>
         </div>
       </div>
+
+      {imageErrors.length > 0 && (
+        <div className="card stack stack--sm" role="alert" style={{ borderColor: "var(--danger, #c0392b)" }}>
+          <strong className="field__label">This product was not saved — fix the image URLs first:</strong>
+          <ul className="stack stack--sm" style={{ margin: 0, paddingInlineStart: "1.2em" }}>
+            {imageErrors.map((issue, i) => (
+              <li key={i} className="text-sm">
+                {issue}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <section className="card stack" aria-label="Core">
         <div className="form-grid">
@@ -706,17 +732,25 @@ function RoleImageField({
   onChange: (src: string) => void;
 }) {
   const customerTerm = role === "styled" ? "media.styled" : "media.real";
+  const roleProblem = imageUrlProblem(image?.src ?? "");
   return (
     <div className="media-admin__slot">
       <label className="field">
         <span className="field__label">{label}</span>
         <input
-          className="input num"
+          className={`input num${roleProblem ? " is-invalid" : ""}`}
           dir="ltr"
           placeholder="https://…"
+          aria-invalid={roleProblem ? true : undefined}
+          aria-describedby={roleProblem ? `${role}-url-err` : undefined}
           value={image?.src ?? ""}
           onChange={(e) => onChange(e.target.value.trim())}
         />
+        {roleProblem && (
+          <span className="field__error" id={`${role}-url-err`} role="alert">
+            {imageUrlProblemMessage(roleProblem, image?.src ?? "")}
+          </span>
+        )}
         <span className="field__hint">{help}</span>
         <span className="field__hint">
           Customers see this labelled “{role === "styled" ? "Styled Preview" : "Real Product"}” · {AR(customerTerm)} · {HE(customerTerm)}
@@ -724,7 +758,7 @@ function RoleImageField({
       </label>
       <div className="media-admin__preview">
         {image?.src ? (
-          <img src={image.src} alt={`${label} preview`} width={96} height={120} />
+          <SafeImage src={image.src} alt={`${label} preview`} width={96} height={120} />
         ) : (
           <span className="media-admin__empty">Not set</span>
         )}
@@ -810,9 +844,10 @@ function ProductMediaEditor({
         {extras.map((img, i) => (
           <div className="media-admin__row" key={i}>
             <input
-              className="input num"
+              className={`input num${imageUrlProblem(img.src) ? " is-invalid" : ""}`}
               dir="ltr"
               aria-label={`Gallery image ${i + 1} URL`}
+              aria-invalid={imageUrlProblem(img.src) ? true : undefined}
               value={img.src}
               onChange={(e) => editExtra(i, e.target.value.trim())}
             />

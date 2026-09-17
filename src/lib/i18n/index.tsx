@@ -5,27 +5,18 @@
  * is enforced by tests/unit/i18n-parity.test.ts.
  */
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
-import ar from "./ar.json";
-import he from "./he.json";
-import en from "./en.json";
-
-export type Locale = "ar" | "he" | "en";
-export const LOCALES: Locale[] = ["ar", "he", "en"];
-export const DEFAULT_LOCALE: Locale = "ar";
-
-const DICTS: Record<Locale, Record<string, unknown>> = { ar, he, en };
-
-export function isLocale(value: string | undefined): value is Locale {
-  return value === "ar" || value === "he" || value === "en";
-}
-
-export function localeDir(locale: Locale): "rtl" | "ltr" {
-  return locale === "en" ? "ltr" : "rtl";
-}
-
-export function localeName(locale: Locale): string {
-  return locale === "ar" ? "العربية" : locale === "he" ? "עברית" : "English";
-}
+export {
+  DEFAULT_LOCALE,
+  hasTranslation,
+  isLocale,
+  LOCALES,
+  localeDir,
+  localeName,
+  translator,
+  type Locale,
+  type TFunction,
+} from "./translate.ts";
+import { hasTranslation, localeDir, translator, type Locale, type TFunction } from "./translate.ts";
 
 const STORAGE_KEY = "crowned_locale";
 
@@ -40,44 +31,22 @@ export function rememberLocale(locale: Locale): void {
 export function detectPreferredLocale(): Locale {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && isLocale(saved)) return saved;
+    if (saved && isLocaleLocal(saved)) return saved;
   } catch {
     /* ignore */
   }
   if (typeof navigator !== "undefined") {
     for (const lang of navigator.languages ?? []) {
       const base = lang.slice(0, 2).toLowerCase();
-      if (isLocale(base)) return base;
+      if (isLocaleLocal(base)) return base;
       if (base === "iw") return "he";
     }
   }
-  return DEFAULT_LOCALE;
+  return "ar";
 }
 
-function lookup(dict: Record<string, unknown>, key: string): string | undefined {
-  let node: unknown = dict;
-  for (const part of key.split(".")) {
-    if (node && typeof node === "object" && part in (node as Record<string, unknown>)) {
-      node = (node as Record<string, unknown>)[part];
-    } else {
-      return undefined;
-    }
-  }
-  return typeof node === "string" ? node : undefined;
-}
-
-export type TFunction = (key: string, vars?: Record<string, string | number>) => string;
-
-export function translator(locale: Locale): TFunction {
-  return (key, vars) => {
-    let text = lookup(DICTS[locale], key) ?? lookup(DICTS.en, key) ?? key;
-    if (vars) {
-      for (const [name, value] of Object.entries(vars)) {
-        text = text.replaceAll(`{${name}}`, String(value));
-      }
-    }
-    return text;
-  };
+function isLocaleLocal(value: string | undefined): value is Locale {
+  return value === "ar" || value === "he" || value === "en";
 }
 
 /** ₪ price formatting. Uses western digits (standard for the Israeli market
@@ -93,6 +62,8 @@ interface I18nContextValue {
   locale: Locale;
   dir: "rtl" | "ltr";
   t: TFunction;
+  /** See {@link hasTranslation} — required before using a server-built key. */
+  has: (key: string) => boolean;
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -105,7 +76,7 @@ export function LocaleProvider({ locale, children }: { locale: Locale; children:
   }, [locale]);
 
   const value = useMemo<I18nContextValue>(
-    () => ({ locale, dir: localeDir(locale), t: translator(locale) }),
+    () => ({ locale, dir: localeDir(locale), t: translator(locale), has: (key: string) => hasTranslation(locale, key) }),
     [locale],
   );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

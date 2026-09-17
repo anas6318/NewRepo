@@ -18,6 +18,7 @@
  */
 import { toPublicBadgeSnapshot } from "./badges.ts";
 import type { Order } from "../services/types.ts";
+import { FULFILLMENT_FLOW, type FulfillmentStatus } from "../services/types.ts";
 
 /**
  * Order-level fields removed from every customer-facing response.
@@ -75,4 +76,37 @@ export function toCustomerOrder<T extends Order>(order: T): T {
   clone.sheetsSync = { status: order.sheetsSync.status };
 
   return clone;
+}
+
+/* ── Customer-facing tracking timeline ──────────────────────────────────── */
+
+/**
+ * The steps a customer is shown for one order, in the order they really
+ * happen.
+ *
+ * Two optional steps get woven into {@link FULFILLMENT_FLOW}:
+ *
+ *  • `awaiting_supplier_confirmation` — only when the order is held for a
+ *    supplier check.
+ *  • `awaiting_payment` — only for bank transfer, where the customer has to
+ *    go and do something.
+ *
+ * When BOTH apply, the supplier check must come FIRST. CROWNED does not ask
+ * anyone to transfer money for a shirt whose availability is still unknown,
+ * and the timeline has to say so. The previous implementation spliced each
+ * step in at index 1 independently, so whichever was inserted last ended up
+ * first and bank-transfer orders showed "Awaiting payment" ahead of
+ * "Awaiting supplier confirmation" — the opposite of the real process.
+ *
+ * Orders that need neither are unaffected: the result is FULFILLMENT_FLOW.
+ */
+export function customerTimeline(order: {
+  paymentMethod?: string;
+  supplierConfirmation?: { required?: boolean } | undefined;
+}): FulfillmentStatus[] {
+  const [first, ...rest] = FULFILLMENT_FLOW;
+  const middle: FulfillmentStatus[] = [];
+  if (order.supplierConfirmation?.required) middle.push("awaiting_supplier_confirmation");
+  if (order.paymentMethod === "bank_transfer") middle.push("awaiting_payment");
+  return [first!, ...middle, ...rest];
 }

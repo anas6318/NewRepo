@@ -156,6 +156,7 @@ export function ContactPage() {
   const [contact, setContact] = useState("");
   const [message, setMessage] = useState("");
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   usePageMeta({ title: t("nav.contact"), description: t("contact.intro"), path: "/contact", locale });
@@ -167,16 +168,30 @@ export function ContactPage() {
       return;
     }
     setError(null);
-    await dataService().submitIssueReport({
-      orderNumber: "-",
-      name: name.trim(),
-      contact: contact.trim(),
-      category: "other",
-      description: `[contact form] ${message.trim()}`,
-      requestedResolution: "",
-    });
-    setDone(true);
-    toast.push(t("contact.received"));
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await dataService().submitIssueReport({
+        orderNumber: "-",
+        name: name.trim(),
+        contact: contact.trim(),
+        category: "other",
+        description: `[contact form] ${message.trim()}`,
+        requestedResolution: "",
+      });
+      // The result used to be discarded, so a failed send still showed
+      // "message received". Everything typed is preserved on failure.
+      if (!res?.ok) {
+        setError(t("errors.submitFailedKeep"));
+        return;
+      }
+      setDone(true);
+      toast.push(t("contact.received"));
+    } catch {
+      setError(t("errors.submitFailedKeep"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -215,8 +230,8 @@ export function ContactPage() {
             <Field id="ct-msg" label={t("contact.message")} required>
               <textarea id="ct-msg" className="textarea" value={message} onChange={(e) => setMessage(e.target.value)} />
             </Field>
-            <button type="submit" className="btn btn--gold" style={{ alignSelf: "flex-start" }}>
-              {t("contact.send")}
+            <button type="submit" className="btn btn--gold" style={{ alignSelf: "flex-start" }} disabled={busy}>
+              {busy ? t("common.loading") : t("contact.send")}
             </button>
           </form>
         )}

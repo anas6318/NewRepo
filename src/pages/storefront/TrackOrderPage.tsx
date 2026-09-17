@@ -5,7 +5,7 @@ import { useI18n } from "../../lib/i18n/index.tsx";
 import { usePageMeta } from "../../lib/seo.tsx";
 import { dataService } from "../../services/index.ts";
 import type { FulfillmentStatus, Order } from "../../services/types.ts";
-import { FULFILLMENT_FLOW } from "../../services/types.ts";
+import { customerTimeline } from "../../lib/orders.ts";
 import { Field } from "../../components/product/ReviewsSection.tsx";
 import { Price, useL } from "../../components/ui/bits.tsx";
 import { IconCheck } from "../../components/ui/Icons.tsx";
@@ -153,12 +153,9 @@ export function TrackOrderPage() {
 export function OrderTimeline({ order }: { order: Order }) {
   const { locale, t } = useI18n();
   const reached = new Map(order.tracking.map((ev) => [ev.status, ev.at]));
-  // Orders held for a supplier check show that step explicitly, so the
-  // customer sees exactly where the order stands before production starts.
-  const base: FulfillmentStatus[] = order.supplierConfirmation?.required
-    ? ["order_received", "awaiting_supplier_confirmation", ...FULFILLMENT_FLOW.slice(1)]
-    : FULFILLMENT_FLOW;
-  const flow: FulfillmentStatus[] = order.paymentMethod === "bank_transfer" ? [base[0]!, "awaiting_payment", ...base.slice(1)] : base;
+  // Step order — including the supplier-check-before-payment rule — lives in
+  // one pure function so it can be tested without a browser.
+  const flow: FulfillmentStatus[] = customerTimeline(order);
   const currentIdx = flow.findIndex((s) => s === order.fulfillmentStatus);
   // Statuses outside the main flow (supplier_processing, ready_for_pickup,
   // issue_reported, cancelled, refunded) render appended as the current step.

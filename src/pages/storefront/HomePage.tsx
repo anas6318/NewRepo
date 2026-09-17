@@ -21,6 +21,7 @@ import { SectionHead, useL } from "../../components/ui/bits.tsx";
 import { IconArrow, IconCrown, IconShield, IconShirt, IconTruck, IconWhatsApp } from "../../components/ui/Icons.tsx";
 import { whatsappLink } from "../../lib/whatsapp.ts";
 import { dataServiceSafe } from "./page-utils.ts";
+import { SafeImage } from "../../components/ui/SafeImage.tsx";
 
 export function HomePage() {
   const { locale, t } = useI18n();
@@ -101,7 +102,7 @@ export function HomePage() {
                 className="cat-tile"
                 onClick={() => track("view_category", { category: cat.slug })}
               >
-                <img src={cat.image} alt="" loading="lazy" width={400} height={500} />
+                <SafeImage src={cat.image} alt="" loading="lazy" width={400} height={500} />
                 <span className="cat-tile__label">
                   {L(cat.name)}
                   <IconArrow size={16} />

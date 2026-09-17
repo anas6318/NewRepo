@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "../../lib/i18n/index.tsx";
+import { localizeIssues } from "../../lib/form-errors.ts";
 import { dataService } from "../../services/index.ts";
 import { track } from "../../lib/analytics.ts";
 import type { Review } from "../../services/types.ts";
@@ -7,6 +8,7 @@ import { Stars } from "../ui/bits.tsx";
 import { IconCheck, IconStar } from "../ui/Icons.tsx";
 import { useToast } from "../../services/store.tsx";
 import { s } from "../../lib/schema.ts";
+import { SafeImage } from "../ui/SafeImage.tsx";
 
 const reviewSchema = s.object({
   displayName: s.string().trim().min(2).max(40),
@@ -24,6 +26,8 @@ export function ReviewsSection({ productSlug, heading }: { productSlug?: string;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [photo, setPhoto] = useState<string | undefined>();
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -40,27 +44,37 @@ export function ReviewsSection({ productSlug, heading }: { productSlug?: string;
     e.preventDefault();
     const parsed = reviewSchema.safeParse(fields);
     if (!parsed.success) {
-      const map: Record<string, string> = {};
-      for (const issue of parsed.issues) map[issue.path] = issue.message;
-      setErrors(map);
+      // Localized, never the schema's own English text.
+      setErrors(localizeIssues(parsed.issues, t));
       return;
     }
     setErrors({});
-    const res = await dataService().submitReview({
-      productSlug,
-      rating: rating as Review["rating"],
-      title: parsed.data.title,
-      body: parsed.data.body,
-      displayName: parsed.data.displayName,
-      locale,
-      photo,
-    });
-    if (res.ok) {
+    setBusy(true);
+    try {
+      const res = await dataService().submitReview({
+        productSlug,
+        rating: rating as Review["rating"],
+        title: parsed.data.title,
+        body: parsed.data.body,
+        displayName: parsed.data.displayName,
+        locale,
+        photo,
+      });
+      // Success is claimed ONLY on a genuine ok. The form and its contents
+      // stay exactly as typed on failure so the customer can retry.
+      if (!res.ok) {
+        setFormError(t("errors.submitFailedKeep"));
+        return;
+      }
+      setFormError(null);
       setSubmitted(true);
       track("review_interaction", { action: "submitted" });
       toast.push(t("reviews.pendingNote"));
-    } else {
-      toast.push(res.error ?? t("common.error"), "error");
+    } catch {
+      // A thrown network error is a failure like any other, not a success.
+      setFormError(t("errors.submitFailedKeep"));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -126,8 +140,13 @@ export function ReviewsSection({ productSlug, heading }: { productSlug?: string;
             <input id="rv-photo" type="file" accept="image/png,image/jpeg,image/webp" onChange={onPhoto} className="input" />
           </Field>
           <p className="text-xs text-muted">{t("reviews.moderationNote")}</p>
-          <button type="submit" className="btn btn--gold" style={{ alignSelf: "flex-start" }}>
-            {t("reviews.submit")}
+          {formError && (
+            <p className="field__error" role="alert" data-testid="review-error">
+              {formError}
+            </p>
+          )}
+          <button type="submit" className="btn btn--gold" style={{ alignSelf: "flex-start" }} disabled={busy}>
+            {busy ? t("common.loading") : t("reviews.submit")}
           </button>
         </form>
       )}
@@ -143,7 +162,7 @@ export function ReviewsSection({ productSlug, heading }: { productSlug?: string;
               <Stars rating={r.rating} />
               <p style={{ fontWeight: 700, fontSize: "var(--fs-sm)" }}>{r.title}</p>
               <p className="review-card__body">{r.body}</p>
-              {r.photo && <img src={r.photo} alt={t("reviews.photoAlt", { name: r.displayName })} className="review-card__photo" loading="lazy" />}
+              {r.photo && <SafeImage src={r.photo} alt={t("reviews.photoAlt", { name: r.displayName })} className="review-card__photo" loading="lazy" />}
               <footer className="review-card__meta">
                 <span>{r.displayName}</span>
                 {r.verified && (

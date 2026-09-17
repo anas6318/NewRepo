@@ -7,8 +7,33 @@
 
 export interface Issue {
   path: string;
+  /**
+   * English text. Kept for logs, tests and non-customer surfaces — it is NOT
+   * safe to show a customer, because the storefront is Arabic and Hebrew too.
+   */
   message: string;
+  /**
+   * Stable, translatable identifier for the same failure, plus whatever the
+   * message interpolates. Customer-facing forms localize from this via
+   * src/lib/form-errors.ts; `message` is the developer's copy.
+   */
+  code?: IssueCode;
+  params?: Record<string, string | number>;
 }
+
+export type IssueCode =
+  | "required"
+  | "too_short"
+  | "too_long"
+  | "invalid_format"
+  | "invalid_email"
+  | "invalid_phone"
+  | "not_a_number"
+  | "not_a_whole_number"
+  | "invalid_value"
+  | "must_be_true"
+  | "not_a_list"
+  | "not_an_object";
 
 export type ParseResult<T> = { success: true; data: T } | { success: false; issues: Issue[] };
 
@@ -40,7 +65,7 @@ class OptionalSchema<T> extends Schema<T | undefined> {
   }
 }
 
-type Rule<T> = { test: (v: T) => boolean; message: string };
+type Rule<T> = { test: (v: T) => boolean; message: string; code: IssueCode; params?: Record<string, string | number> };
 
 class StringSchema extends Schema<string> {
   private rules: Rule<string>[] = [];
@@ -52,22 +77,22 @@ class StringSchema extends Schema<string> {
   }
 
   min(n: number, message = `Must be at least ${n} characters`): this {
-    this.rules.push({ test: (v) => v.length >= n, message });
+    this.rules.push({ test: (v) => v.length >= n, message, code: "too_short", params: { min: n } });
     return this;
   }
 
   max(n: number, message = `Must be at most ${n} characters`): this {
-    this.rules.push({ test: (v) => v.length <= n, message });
+    this.rules.push({ test: (v) => v.length <= n, message, code: "too_long", params: { max: n } });
     return this;
   }
 
-  regex(re: RegExp, message = "Invalid format"): this {
-    this.rules.push({ test: (v) => re.test(v), message });
+  regex(re: RegExp, message = "Invalid format", code: IssueCode = "invalid_format"): this {
+    this.rules.push({ test: (v) => re.test(v), message, code });
     return this;
   }
 
   email(message = "Invalid email address"): this {
-    return this.regex(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/, message);
+    return this.regex(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/, message, "invalid_email");
   }
 
   /** Israeli-friendly phone: digits, spaces, dashes, optional +. */
@@ -75,19 +100,20 @@ class StringSchema extends Schema<string> {
     this.rules.push({
       test: (v) => /^\+?[0-9][0-9\s-]{6,17}$/.test(v),
       message,
+      code: "invalid_phone",
     });
     return this;
   }
 
   check(value: unknown, path: string, issues: Issue[]): string {
     if (typeof value !== "string") {
-      issues.push({ path, message: "Required" });
+      issues.push({ path, message: "Required", code: "required" });
       return "";
     }
     const v = this.doTrim ? value.trim() : value;
     for (const rule of this.rules) {
       if (!rule.test(v)) {
-        issues.push({ path, message: rule.message });
+        issues.push({ path, message: rule.message, code: rule.code, ...(rule.params ? { params: rule.params } : {}) });
         return v;
       }
     }
@@ -99,29 +125,29 @@ class NumberSchema extends Schema<number> {
   private rules: Rule<number>[] = [];
 
   int(message = "Must be a whole number"): this {
-    this.rules.push({ test: (v) => Number.isInteger(v), message });
+    this.rules.push({ test: (v) => Number.isInteger(v), message, code: "not_a_whole_number" });
     return this;
   }
 
   min(n: number, message = `Must be ≥ ${n}`): this {
-    this.rules.push({ test: (v) => v >= n, message });
+    this.rules.push({ test: (v) => v >= n, message, code: "too_short", params: { min: n } });
     return this;
   }
 
   max(n: number, message = `Must be ≤ ${n}`): this {
-    this.rules.push({ test: (v) => v <= n, message });
+    this.rules.push({ test: (v) => v <= n, message, code: "too_long", params: { max: n } });
     return this;
   }
 
   check(value: unknown, path: string, issues: Issue[]): number {
     const v = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
     if (typeof v !== "number" || Number.isNaN(v)) {
-      issues.push({ path, message: "Must be a number" });
+      issues.push({ path, message: "Must be a number", code: "not_a_number" });
       return 0;
     }
     for (const rule of this.rules) {
       if (!rule.test(v)) {
-        issues.push({ path, message: rule.message });
+        issues.push({ path, message: rule.message, code: rule.code, ...(rule.params ? { params: rule.params } : {}) });
         return v;
       }
     }
@@ -141,7 +167,7 @@ class BooleanSchema extends Schema<boolean> {
 
   check(value: unknown, path: string, issues: Issue[]): boolean {
     const v = value === true || value === "true" || value === "on";
-    if (this.mustBeTrue && !v) issues.push({ path, message: this.trueMessage });
+    if (this.mustBeTrue && !v) issues.push({ path, message: this.trueMessage, code: "must_be_true" });
     return v;
   }
 }
@@ -160,7 +186,7 @@ class EnumSchema<T extends string> extends Schema<T> {
     if (typeof value === "string" && (this.values as readonly string[]).includes(value)) {
       return value as T;
     }
-    issues.push({ path, message: this.message });
+    issues.push({ path, message: this.message, code: "invalid_value" });
     return this.values[0] as T;
   }
 }
@@ -175,13 +201,13 @@ class ArraySchema<T> extends Schema<T[]> {
   }
 
   min(n: number, message = `At least ${n} required`): this {
-    this.rules.push({ test: (v) => v.length >= n, message });
+    this.rules.push({ test: (v) => v.length >= n, message, code: "too_short", params: { min: n } });
     return this;
   }
 
   check(value: unknown, path: string, issues: Issue[]): T[] {
     if (!Array.isArray(value)) {
-      issues.push({ path, message: "Must be a list" });
+      issues.push({ path, message: "Must be a list", code: "not_a_list" });
       return [];
     }
     const out = value.map((item, i) => this.item.check(item, `${path}[${i}]`, issues));
@@ -205,7 +231,7 @@ class ObjectSchema<S extends Shape> extends Schema<Infer<S>> {
 
   check(value: unknown, path: string, issues: Issue[]): Infer<S> {
     const obj = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
-    if (!value || typeof value !== "object") issues.push({ path, message: "Must be an object" });
+    if (!value || typeof value !== "object") issues.push({ path, message: "Must be an object", code: "not_an_object" });
     const out: Record<string, unknown> = {};
     for (const [key, schema] of Object.entries(this.shape)) {
       out[key] = schema.check(obj[key], path ? `${path}.${key}` : key, issues);

@@ -168,7 +168,9 @@
     "adminStyledLabel": "Styled Preview Image",
     "adminRealLabel": "Real Product Image",
     "adminStyledHelp": "Premium presentation image used for the storefront. This may be AI-generated or professionally styled.",
-    "adminRealHelp": "Actual photograph of the product customers will receive."
+    "adminRealHelp": "Actual photograph of the product customers will receive.",
+    "loadingReal": "Loading the product photo…",
+    "realUnavailable": "The product photo could not be loaded."
   },
   "cart": {
     "title": "Your Cart",
@@ -426,7 +428,16 @@
     "confirmSpelling": "Please confirm the spelling of your personalization.",
     "invalidName": "Name: letters only, up to 14 characters.",
     "invalidNumber": "Number: 1–2 digits.",
-    "selectBadge": "Please choose a badge option."
+    "selectBadge": "Please choose a badge option.",
+    "tooShort": "Please enter at least {min} characters.",
+    "tooLong": "Please use at most {max} characters.",
+    "invalidFormat": "This value is not in the expected format.",
+    "notANumber": "Please enter a number.",
+    "notAWholeNumber": "Please enter a whole number.",
+    "invalidValue": "Please check this field.",
+    "mustAccept": "Please confirm this to continue.",
+    "submitFailed": "We could not send that. Please check your connection and try again.",
+    "submitFailedKeep": "We could not send that — your details have been kept. Please try again."
   },
   "maintenance": {
     "title": "CROWNED is getting an upgrade",

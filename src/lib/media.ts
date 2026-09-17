@@ -102,3 +102,73 @@ export function viewLabelKey(view: MediaView): string {
 export function viewShortLabelKey(view: MediaView): string {
   return view === "styled" ? "media.styledShort" : "media.realShort";
 }
+
+/* ── Image URL validation ───────────────────────────────────────────────────
+ *
+ * A product image URL is only useful if a CUSTOMER'S browser can fetch it.
+ * A `file:///C:/Users/...` path renders perfectly on the machine that typed
+ * it and is a broken image for everyone else, which is exactly how a bad URL
+ * reaches production unnoticed. These rules run in Admin before save AND
+ * server-side in the edge function — the client check is the courtesy, the
+ * server check is the guarantee.
+ */
+
+export type ImageUrlProblem = "local_file" | "windows_path" | "relative_path" | "insecure_scheme" | "not_a_url";
+
+/** Absolute non-http(s) schemes that can never work for a remote customer. */
+const LOCAL_SCHEMES = /^(file|blob|data|filesystem|about|chrome|chrome-extension|ms-appx|content|resource):/i;
+/** `C:\…`, `C:/…`, `\\server\share`. */
+const WINDOWS_PATH = /^(?:[A-Za-z]:[\\/]|\\\\)/;
+
+/**
+ * Returns the problem with an image URL, or undefined when it is usable.
+ * An EMPTY string is not an error here — "no image" is a valid state and is
+ * handled by the caller.
+ */
+export function imageUrlProblem(raw: string): ImageUrlProblem | undefined {
+  const src = raw.trim();
+  if (!src) return undefined;
+  if (WINDOWS_PATH.test(src)) return "windows_path";
+  if (LOCAL_SCHEMES.test(src)) return "local_file";
+  // Site-relative paths are legitimate for bundled assets (/brand/…, /demo/…)
+  // and are served from the same origin as the storefront.
+  if (src.startsWith("/") && !src.startsWith("//")) return undefined;
+  let url: URL;
+  try {
+    url = new URL(src);
+  } catch {
+    return "not_a_url";
+  }
+  if (url.protocol === "https:") return undefined;
+  // http:// would be blocked as mixed content on the HTTPS storefront.
+  if (url.protocol === "http:") return url.hostname === "localhost" || url.hostname === "127.0.0.1" ? "local_file" : "insecure_scheme";
+  return "insecure_scheme";
+}
+
+/** Admin-facing English explanation. Admin is an internal, English-only UI. */
+export function imageUrlProblemMessage(problem: ImageUrlProblem, src: string): string {
+  const shown = src.length > 60 ? `${src.slice(0, 57)}…` : src;
+  switch (problem) {
+    case "windows_path":
+    case "local_file":
+      return `"${shown}" is a file on your own computer. Customers cannot load it. Upload the image to Supabase Storage and paste its public https:// URL.`;
+    case "insecure_scheme":
+      return `"${shown}" is not served over https. The storefront is HTTPS, so the browser will block it. Use an https:// URL.`;
+    case "relative_path":
+      return `"${shown}" is a relative path. Use a site-absolute path starting with "/" or a full https:// URL.`;
+    case "not_a_url":
+      return `"${shown}" is not a valid URL. Paste the full https:// address of the image.`;
+  }
+}
+
+/** Every bad image URL on a product, labelled by where it came from. */
+export function productImageIssues(images: readonly ProductImage[]): string[] {
+  const issues: string[] = [];
+  images.forEach((image, index) => {
+    const problem = imageUrlProblem(image.src ?? "");
+    if (!problem) return;
+    const where = image.role === "styled" ? "Styled preview" : image.role === "real" ? "Real product photo" : `Gallery image ${index + 1}`;
+    issues.push(`${where}: ${imageUrlProblemMessage(problem, image.src ?? "")}`);
+  });
+  return issues;
+}

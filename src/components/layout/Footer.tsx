@@ -107,7 +107,10 @@ export function Footer() {
         <hr className="divider" />
         <p className="text-xs text-muted site-footer__disclosure">{settings ? L(settings.nonAffiliationNote) : t("footer.nonAffiliation")}</p>
         <div className="row row--between row--wrap mt-4">
-          <p className="text-xs text-muted">© {new Date().getFullYear()} CROWNED. {t("footer.rights")}</p>
+          {/* footer.rights is the COMPLETE sentence, "© {year} CROWNED. …".
+              Prefixing it with a hand-built "© year CROWNED." printed the
+              notice twice and left {year} unresolved inside the translation. */}
+          <p className="text-xs text-muted">{t("footer.rights", { year: new Date().getFullYear() })}</p>
           {isDemoMode() && <p className="text-xs" style={{ color: "var(--gold-400)" }}>{t("common.demoFooterNote")}</p>}
         </div>
       </div>
@@ -131,21 +134,38 @@ function SignupForm() {
   const toast = useToast();
   const [value, setValue] = useState("");
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Guards the double-tap that would otherwise subscribe the same address
+    // twice; the button is also disabled while this is true.
+    if (busy) return;
     const v = value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) {
       setError(t("errors.invalidEmail"));
       return;
     }
     setError(null);
-    // Consent is explicit: submitting this form IS the opt-in action; no
-    // pre-ticked boxes, consent source recorded (spec §23).
-    await dataService().submitLead({ kind: "email", value: v, consent: true, consentSource: "footer_signup" });
-    setDone(true);
-    toast.push(t("common.signupThanks"));
+    setBusy(true);
+    try {
+      // Consent is explicit: submitting this form IS the opt-in action; no
+      // pre-ticked boxes, consent source recorded (spec §23).
+      const res = await dataService().submitLead({ kind: "email", value: v, consent: true, consentSource: "footer_signup" });
+      // "Thanks for signing up" is only true if the signup was actually
+      // stored. The address stays in the field so a retry costs nothing.
+      if (!res?.ok) {
+        setError(t("errors.submitFailedKeep"));
+        return;
+      }
+      setDone(true);
+      toast.push(t("common.signupThanks"));
+    } catch {
+      setError(t("errors.submitFailedKeep"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (done) return <p className="text-sm" style={{ color: "var(--gold-400)" }}>{t("common.signupThanks")}</p>;
@@ -165,12 +185,12 @@ function SignupForm() {
         aria-describedby={error ? "footer-email-err" : undefined}
       />
       {error && (
-        <p className="field__error" id="footer-email-err">
+        <p className="field__error" id="footer-email-err" role="alert" data-testid="signup-error">
           {error}
         </p>
       )}
-      <button type="submit" className="btn btn--gold">
-        {t("footer.newsletterSubmit")}
+      <button type="submit" className="btn btn--gold" disabled={busy}>
+        {busy ? t("common.loading") : t("footer.newsletterSubmit")}
       </button>
     </form>
   );

@@ -8,6 +8,7 @@ import { IconBag, IconClose, IconMinus, IconPlus, IconTrash } from "../ui/Icons.
 import { FreeDeliveryProgress } from "../product/FreeDeliveryProgress.tsx";
 import { formatBadgeAdjustment } from "../../lib/badges.ts";
 import { PromotionLine, PromotionProgress } from "../cart/PromotionSummary.tsx";
+import { SafeImage } from "../ui/SafeImage.tsx";
 
 export function CartDrawer() {
   const { locale, t } = useI18n();
@@ -63,7 +64,7 @@ export function CartDrawer() {
               <ul className="cart-lines">
                 {cart.lines.map((line) => (
                   <li key={line.key} className="cart-line">
-                    <img src={line.image} alt="" width={72} height={90} className="cart-line__img" />
+                    <SafeImage src={line.image} alt="" width={72} height={90} className="cart-line__img" />
                     <div className="cart-line__body">
                       <p className="cart-line__title">{L(line.title)}</p>
                       <p className="text-xs text-muted">

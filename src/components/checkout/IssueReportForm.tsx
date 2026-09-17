@@ -27,6 +27,7 @@ export function IssueReportForm({ orderNumber, defaultContact }: { orderNumber: 
   const [resolution, setResolution] = useState("");
   const [photoName, setPhotoName] = useState("");
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
@@ -36,17 +37,30 @@ export function IssueReportForm({ orderNumber, defaultContact }: { orderNumber: 
       return;
     }
     setError(null);
-    const res = await dataService().submitIssueReport({
-      orderNumber,
-      name: name.trim(),
-      contact: contact.trim(),
-      category,
-      description: `${description.trim()}${photoName ? `\n[photo attached: ${photoName}]` : ""}`,
-      requestedResolution: resolution.trim(),
-    });
-    if (res.ok) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await dataService().submitIssueReport({
+        orderNumber,
+        name: name.trim(),
+        contact: contact.trim(),
+        category,
+        description: `${description.trim()}${photoName ? `\n[photo attached: ${photoName}]` : ""}`,
+        requestedResolution: resolution.trim(),
+      });
+      // A falsy result used to do NOTHING at all — the customer pressed send
+      // and the form simply sat there. Failure is now stated, and the report
+      // they typed is still in the fields.
+      if (!res?.ok) {
+        setError(t("errors.submitFailedKeep"));
+        return;
+      }
       setDone(true);
       toast.push(t("issues.received"));
+    } catch {
+      setError(t("errors.submitFailedKeep"));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -86,8 +100,8 @@ export function IssueReportForm({ orderNumber, defaultContact }: { orderNumber: 
       <Field id="is-res" label={t("issues.resolution")}>
         <input id="is-res" className="input" value={resolution} onChange={(e) => setResolution(e.target.value)} placeholder={t("issues.resolutionHint")} />
       </Field>
-      <button type="submit" className="btn btn--gold" style={{ alignSelf: "flex-start" }}>
-        {t("issues.submit")}
+      <button type="submit" className="btn btn--gold" style={{ alignSelf: "flex-start" }} disabled={busy}>
+        {busy ? t("common.loading") : t("issues.submit")}
       </button>
     </form>
   );

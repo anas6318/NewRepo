@@ -4,6 +4,7 @@ import type { Product, ProductImage } from "../../services/types.ts";
 import { imageForView, productMedia } from "../../lib/media.ts";
 import { useL } from "../ui/bits.tsx";
 import { MediaFrame, MediaLabel, MediaToggle, useMediaView } from "./MediaSwitch.tsx";
+import { SafeImage } from "../ui/SafeImage.tsx";
 
 type Slide = { kind: "hero" } | { kind: "image"; img: ProductImage };
 
@@ -24,7 +25,7 @@ export function Gallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
   const [zoom, setZoom] = useState(false);
   const media = productMedia(product);
-  const { view, wantReal, choose, prefetchReal } = useMediaView(media, product.slug);
+  const { view, pending, realStatus, choose, prefetchReal } = useMediaView(media, product.slug);
   const hasHero = media.views.length > 0;
 
   const fallback: ProductImage[] = product.images.length ? product.images : [{ src: "", alt: product.name }];
@@ -52,9 +53,9 @@ export function Gallery({ product }: { product: Product }) {
             }}
           >
             {slide.kind === "hero" ? (
-              <MediaFrame media={media} view={view} wantReal={wantReal} eager width={720} height={900} />
+              <MediaFrame media={media} view={view} realStatus={realStatus} eager width={720} height={900} />
             ) : slide.img.src ? (
-              <img
+              <SafeImage
                 src={slide.img.src}
                 alt={L(slide.img.alt)}
                 loading={i === 0 ? "eager" : "lazy"}
@@ -74,7 +75,7 @@ export function Gallery({ product }: { product: Product }) {
         {hasHero && (
           <div className="gallery__media-ui">
             <MediaLabel media={media} variant="page" />
-            <MediaToggle media={media} view={view} onSelect={choose} onPrefetch={prefetchReal} variant="page" />
+            <MediaToggle media={media} view={view} pending={pending} realStatus={realStatus} onSelect={choose} onPrefetch={prefetchReal} variant="page" />
           </div>
         )}
       </div>
@@ -94,7 +95,7 @@ export function Gallery({ product }: { product: Product }) {
                 className={`gallery__thumb${i === active ? " is-active" : ""}`}
                 onClick={() => setActive(i)}
               >
-                {img?.src ? <img src={img.src} alt="" width={64} height={80} loading="lazy" /> : null}
+                {img?.src ? <SafeImage src={img.src} alt="" width={64} height={80} loading="lazy" /> : null}
               </button>
             );
           })}
@@ -103,7 +104,7 @@ export function Gallery({ product }: { product: Product }) {
 
       {zoom && current?.src && (
         <div className="dialog-backdrop" onClick={() => setZoom(false)} role="dialog" aria-modal="true" aria-label={t("product.zoomImage")}>
-          <img src={current.src} alt={L(current.alt)} style={{ maxHeight: "88dvh", maxWidth: "94vw", objectFit: "contain", borderRadius: "var(--r-md)" }} />
+          <SafeImage src={current.src} alt={L(current.alt)} style={{ maxHeight: "88dvh", maxWidth: "94vw", objectFit: "contain", borderRadius: "var(--r-md)" }} />
           <button type="button" className="btn btn--dark gallery__zoom-close" onClick={() => setZoom(false)}>
             {t("common.close")}
           </button>
