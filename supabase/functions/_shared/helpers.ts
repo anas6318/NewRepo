@@ -104,13 +104,19 @@ export class HttpError extends Error {
   constructor(
     public status: number,
     message: string,
+    /**
+     * Optional operator-facing detail. Returned alongside the stable error
+     * code so Admin can say WHICH image was rejected, while the code itself
+     * stays machine-readable and translatable.
+     */
+    public detail?: string,
   ) {
     super(message);
   }
 }
 
 export function handleError(err: unknown): Response {
-  if (err instanceof HttpError) return json({ error: err.message }, err.status);
+  if (err instanceof HttpError) return json({ error: err.message, ...(err.detail ? { detail: err.detail } : {}) }, err.status);
   console.error("[edge] unexpected error:", err);
   return json({ error: "internal_error" }, 500);
 }

@@ -235,7 +235,9 @@
     "error_invalid_quantity": "Invalid quantity.",
     "error_personalization_unavailable": "Personalization is not available for a product in your cart.",
     "error_invalid_personalization": "Invalid name or number.",
-    "error_invalid_badge": "A selected badge option is not available."
+    "error_invalid_badge": "A selected badge option is not available.",
+    "bankTransferAfterConfirmation": "Payment details after availability is confirmed",
+    "bankTransferHeldBody": "We'll check availability with the supplier first. As soon as it's confirmed we'll send you the bank transfer details — nothing is due until then, and nothing is charged automatically."
   },
   "confirmation": {
     "title": "Order received",

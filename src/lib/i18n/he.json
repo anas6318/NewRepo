@@ -235,7 +235,9 @@
     "error_invalid_quantity": "כמות לא תקינה.",
     "error_personalization_unavailable": "התאמה אישית אינה זמינה למוצר בעגלה.",
     "error_invalid_personalization": "שם או מספר לא תקינים.",
-    "error_invalid_badge": "הפאץ׳ שנבחר אינו זמין."
+    "error_invalid_badge": "הפאץ׳ שנבחר אינו זמין.",
+    "bankTransferAfterConfirmation": "פרטי התשלום לאחר אישור הזמינות",
+    "bankTransferHeldBody": "נבדוק תחילה את הזמינות מול הספק. מיד לאחר האישור נשלח לך את פרטי ההעברה הבנקאית — עד אז אין תשלום, ולא נגבה דבר באופן אוטומטי."
   },
   "confirmation": {
     "title": "ההזמנה התקבלה",

@@ -1417,29 +1417,12 @@
 }
 
 /* ── Broken-image fallback ───────────────────────────────────────────────
-   Occupies the same box the image would have, so a failed request never
-   shifts the layout. Deliberately neutral: it states that an image is
-   missing rather than substituting another one. */
-.img-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 100%;
-  block-size: 100%;
-  background:
-    linear-gradient(135deg, rgba(246, 244, 239, 0.035) 0%, rgba(246, 244, 239, 0.01) 100%),
-    var(--ink-900, #0b0b0d);
-  box-shadow: inset 0 0 0 1px rgba(246, 244, 239, 0.06);
-  overflow: hidden;
-}
-
-.img-fallback__mark {
-  font-size: 0.6875rem;
-  letter-spacing: 0.18em;
-  font-weight: 600;
-  color: rgba(246, 244, 239, 0.22);
-  white-space: nowrap;
-}
+   The placeholder is now an <img> carrying the SAME width/height attributes
+   and className as the image it replaces, so it inherits every layout rule
+   that already governs product images — object-fit, width:100%, the card
+   frame's aspect ratio. Nothing extra is needed here, and nothing extra is
+   wanted: a separate sizing rule is exactly what let a 600px placeholder
+   overflow a 280px card. */
 
 /* ── Real-photograph loading / failure affordances ─────────────────────── */
 .media-stack__busy {

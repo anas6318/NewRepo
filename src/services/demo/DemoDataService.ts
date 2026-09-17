@@ -8,6 +8,7 @@
  * it never claims to be a genuine transaction.
  */
 import { PASSWORD_MIN_LENGTH } from "../../lib/auth-recovery.ts";
+import { DASHBOARD_AWAITING_SUPPLIER, DASHBOARD_IN_PRODUCTION, inBucket } from "../../../supabase/functions/_shared/zones.ts";
 import type { DataService, PlaceOrderInput, PlaceOrderResult, SessionInfo } from "../DataService.ts";
 import type {
   AuditEntry,
@@ -793,8 +794,10 @@ export class DemoDataService implements DataService {
       revenueIls: revenue,
       paidOrders: paid.length,
       pendingPayments: orders.filter((o) => o.paymentStatus === "awaiting_payment" || o.paymentStatus === "pending").length,
-      awaitingSupplier: orders.filter((o) => o.fulfillmentStatus === "payment_confirmed").length,
-      inProduction: orders.filter((o) => ["sent_to_supplier", "production_started", "supplier_processing"].includes(o.fulfillmentStatus)).length,
+      // Same buckets as the edge function, from one shared definition — the
+      // two copies had already drifted into the same wrong status.
+      awaitingSupplier: orders.filter((o) => inBucket(DASHBOARD_AWAITING_SUPPLIER, o.fulfillmentStatus)).length,
+      inProduction: orders.filter((o) => inBucket(DASHBOARD_IN_PRODUCTION, o.fulfillmentStatus)).length,
       dispatched: orders.filter((o) => o.fulfillmentStatus === "supplier_dispatched").length,
       inTransit: orders.filter((o) => ["in_transit", "arrived_locally", "out_for_delivery"].includes(o.fulfillmentStatus)).length,
       avgOrderValueIls: paid.length ? Math.round(revenue / paid.length) : 0,

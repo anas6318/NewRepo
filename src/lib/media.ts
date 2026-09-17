@@ -113,36 +113,17 @@ export function viewShortLabelKey(view: MediaView): string {
  * server check is the guarantee.
  */
 
-export type ImageUrlProblem = "local_file" | "windows_path" | "relative_path" | "insecure_scheme" | "not_a_url";
-
-/** Absolute non-http(s) schemes that can never work for a remote customer. */
-const LOCAL_SCHEMES = /^(file|blob|data|filesystem|about|chrome|chrome-extension|ms-appx|content|resource):/i;
-/** `C:\…`, `C:/…`, `\\server\share`. */
-const WINDOWS_PATH = /^(?:[A-Za-z]:[\\/]|\\\\)/;
+export type { ImageUrlProblem } from "../../supabase/functions/_shared/image-url.ts";
+import { imageUrlProblem as imageUrlProblemShared, type ImageUrlProblem } from "../../supabase/functions/_shared/image-url.ts";
 
 /**
- * Returns the problem with an image URL, or undefined when it is usable.
- * An EMPTY string is not an error here — "no image" is a valid state and is
- * handled by the caller.
+ * Browser-side check. Delegates to the shared rules with site-relative paths
+ * ALLOWED, because the storefront really does ship bundled assets under
+ * /brand and /demo. The server applies the same rules with that permission
+ * withheld — see supabase/functions/_shared/image-url.ts.
  */
 export function imageUrlProblem(raw: string): ImageUrlProblem | undefined {
-  const src = raw.trim();
-  if (!src) return undefined;
-  if (WINDOWS_PATH.test(src)) return "windows_path";
-  if (LOCAL_SCHEMES.test(src)) return "local_file";
-  // Site-relative paths are legitimate for bundled assets (/brand/…, /demo/…)
-  // and are served from the same origin as the storefront.
-  if (src.startsWith("/") && !src.startsWith("//")) return undefined;
-  let url: URL;
-  try {
-    url = new URL(src);
-  } catch {
-    return "not_a_url";
-  }
-  if (url.protocol === "https:") return undefined;
-  // http:// would be blocked as mixed content on the HTTPS storefront.
-  if (url.protocol === "http:") return url.hostname === "localhost" || url.hostname === "127.0.0.1" ? "local_file" : "insecure_scheme";
-  return "insecure_scheme";
+  return imageUrlProblemShared(raw, { allowSiteRelative: true });
 }
 
 /** Admin-facing English explanation. Admin is an internal, English-only UI. */

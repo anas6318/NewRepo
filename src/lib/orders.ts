@@ -18,7 +18,8 @@
  */
 import { toPublicBadgeSnapshot } from "./badges.ts";
 import type { Order } from "../services/types.ts";
-import { FULFILLMENT_FLOW, type FulfillmentStatus } from "../services/types.ts";
+import { FULFILLMENT_FLOW, type FulfillmentStatus, type JerseyVersion, type Product } from "../services/types.ts";
+import { requiresSupplierConfirmation, resolveAvailability } from "../services/sizing.ts";
 
 /**
  * Order-level fields removed from every customer-facing response.
@@ -109,4 +110,37 @@ export function customerTimeline(order: {
   if (order.supplierConfirmation?.required) middle.push("awaiting_supplier_confirmation");
   if (order.paymentMethod === "bank_transfer") middle.push("awaiting_payment");
   return [first!, ...middle, ...rest];
+}
+
+/* ── Supplier confirmation, for the cart ────────────────────────────────── */
+
+/**
+ * Whether any line in this cart will make the order wait for a supplier
+ * check — the SAME question `place-order` answers server-side when it decides
+ * to set `supplierConfirmation.required`.
+ *
+ * Resolved live from the products' own availability records through the
+ * existing {@link resolveAvailability} / {@link requiresSupplierConfirmation}
+ * rules, rather than from a flag snapshotted into the cart line. A snapshot
+ * would go stale the moment the owner confirms availability, and the customer
+ * would be told the wrong thing at the worst possible moment — the payment
+ * step.
+ *
+ * Checkout uses this to decide whether bank-transfer INSTRUCTIONS may be
+ * shown. CROWNED's flow is: order received → supplier confirms → customer
+ * pays. Printing account details before the shirt is known to be obtainable
+ * invites someone to transfer money for something that may not exist.
+ */
+export function cartNeedsSupplierConfirmation(
+  lines: readonly { slug: string; version?: JerseyVersion; size: string }[],
+  products: readonly Product[],
+): boolean {
+  const bySlug = new Map(products.map((p) => [p.slug, p]));
+  return lines.some((line) => {
+    const product = bySlug.get(line.slug);
+    // An unknown product is not evidence of availability. Withholding payment
+    // details is the safe direction to fail in.
+    if (!product) return true;
+    return requiresSupplierConfirmation(resolveAvailability(product, line.version, line.size || undefined).status);
+  });
 }

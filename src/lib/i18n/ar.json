@@ -235,7 +235,9 @@
     "error_invalid_quantity": "كمية غير صالحة.",
     "error_personalization_unavailable": "التخصيص غير متاح لأحد المنتجات.",
     "error_invalid_personalization": "اسم أو رقم غير صالح.",
-    "error_invalid_badge": "الشارة المختارة غير متاحة."
+    "error_invalid_badge": "الشارة المختارة غير متاحة.",
+    "bankTransferAfterConfirmation": "تفاصيل الدفع بعد تأكيد التوفّر",
+    "bankTransferHeldBody": "سنتحقّق أولاً من التوفّر لدى المورّد. بمجرّد التأكيد سنرسل لك تفاصيل التحويل البنكي — لا شيء مستحق قبل ذلك، ولا يتم خصم أي مبلغ تلقائيًا."
   },
   "confirmation": {
     "title": "تم استلام الطلب",

@@ -10,7 +10,17 @@
  * save-promotions.
  */
 import { audit, dbInsert, dbSelect, dbUpdate, dbUpsert, db, handleError, HttpError, json, preflight, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
-import { patchMatchedNoRows, zonePriceProblem } from "../_shared/zones.ts";
+import { productImageUrlProblems } from "../_shared/image-url.ts";
+import {
+  DASHBOARD_AWAITING_SUPPLIER,
+  DASHBOARD_DISPATCHED,
+  DASHBOARD_IN_PRODUCTION,
+  DASHBOARD_IN_TRANSIT,
+  DASHBOARD_PENDING_PAYMENT,
+  inBucket,
+  patchMatchedNoRows,
+  zonePriceProblem,
+} from "../_shared/zones.ts";
 import {
   alreadySent,
   CUSTOMER_EMAIL_EVENTS,
@@ -139,10 +149,8 @@ async function savePromotions(req: Request, body: { promotions: PromotionRow[] }
   for (const [i, promo] of promotions.entries()) {
     const sortOrder = (i + 1) * 10;
     const row = { id: promo.id, enabled: promo.enabled === true, sort_order: sortOrder, data: { ...promo, sortOrder } };
-    const res = await db(`promotions?id=eq.${encodeURIComponent(promo.id)}`, { method: "PATCH", body: JSON.stringify(row) });
-    if (!res.ok) throw new Error(await res.text());
-    const patched = await res.text();
-    if (!patched || patched === "[]") await dbInsert("promotions", row);
+    // Same reason as products: an empty PATCH body is success, not absence.
+    await dbUpsert("promotions", row);
   }
 
   await audit(staff.email, "promotions_updated", `${promotions.length} campaigns`);
@@ -204,10 +212,8 @@ async function saveBadges(req: Request, body: { badges: BadgeOption[] }): Promis
       data: { ...publicData, sortOrder },
       supplier_ref: supplierReference ?? null,
     };
-    const res = await db(`patches?id=eq.${encodeURIComponent(badge.id)}`, { method: "PATCH", body: JSON.stringify(row) });
-    if (!res.ok) throw new Error(await res.text());
-    const patched = await res.text();
-    if (!patched || patched === "[]") await dbInsert("patches", row);
+    // Same reason as products: an empty PATCH body is success, not absence.
+    await dbUpsert("patches", row);
   }
 
   await audit(staff.email, "badges_updated", `${badges.length} options`);
@@ -230,6 +236,17 @@ async function saveProduct(req: Request, product: Record<string, unknown>): Prom
     product.availability = { ...avail, status: "confirmation_required" };
   }
 
+  // Image URLs are validated HERE, not only in the Admin form. Anyone can
+  // POST to this function directly, and a local-file URL saved that way looks
+  // perfect to whoever typed it and is a broken image for every customer.
+  // Site-relative paths are refused for stored product data: a saved product
+  // must point at an uploaded image, not at an asset a particular build
+  // happened to bundle. Every image is checked — styled, real and gallery.
+  const badImages = productImageUrlProblems(product.images);
+  if (badImages.length) {
+    throw new HttpError(400, "product_invalid_image_url", badImages.map((b) => `${b.where}: ${b.problem}`).join("; "));
+  }
+
   const row = {
     id: String(product.id),
     slug: String(product.slug),
@@ -239,12 +256,11 @@ async function saveProduct(req: Request, product: Record<string, unknown>): Prom
     data: product,
     created_at: product.createdAt ?? new Date().toISOString(),
   };
-  const res = await db(`products?id=eq.${encodeURIComponent(row.id)}`, { method: "PATCH", body: JSON.stringify(row) });
-  if (!res.ok) throw new Error(await res.text());
-  const patched = await res.text();
-  if (!patched || patched === "[]") {
-    await dbInsert("products", row);
-  }
+  // Upsert, not PATCH-then-maybe-INSERT: a successful PostgREST PATCH answers
+  // 204 with an EMPTY body, which the old code read as "row missing" and
+  // followed with an INSERT — a duplicate-key failure on every re-save of an
+  // existing product. merge-duplicates is one atomic write with no read-back.
+  await dbUpsert("products", row);
   await audit(staff.email, "product_saved", row.slug);
   return json({ ok: true });
 }
@@ -511,11 +527,13 @@ async function dashboard(req: Request): Promise<Response> {
     ordersToday: orders.filter((o) => o.created_at.slice(0, 10) === today).length,
     revenueIls: revenue,
     paidOrders: paid.length,
-    pendingPayments: orders.filter((o) => ["pending", "awaiting_payment"].includes(o.payment_status)).length,
-    awaitingSupplier: orders.filter((o) => o.fulfillment_status === "payment_confirmed").length,
-    inProduction: orders.filter((o) => ["sent_to_supplier", "production_started", "supplier_processing"].includes(o.fulfillment_status)).length,
-    dispatched: orders.filter((o) => o.fulfillment_status === "supplier_dispatched").length,
-    inTransit: orders.filter((o) => ["in_transit", "arrived_locally", "out_for_delivery"].includes(o.fulfillment_status)).length,
+    pendingPayments: orders.filter((o) => inBucket(DASHBOARD_PENDING_PAYMENT, o.payment_status)).length,
+    // Was `payment_confirmed` — an order that has PAID, not one waiting on
+    // the supplier, and in CROWNED's flow the supplier step comes first.
+    awaitingSupplier: orders.filter((o) => inBucket(DASHBOARD_AWAITING_SUPPLIER, o.fulfillment_status)).length,
+    inProduction: orders.filter((o) => inBucket(DASHBOARD_IN_PRODUCTION, o.fulfillment_status)).length,
+    dispatched: orders.filter((o) => inBucket(DASHBOARD_DISPATCHED, o.fulfillment_status)).length,
+    inTransit: orders.filter((o) => inBucket(DASHBOARD_IN_TRANSIT, o.fulfillment_status)).length,
     avgOrderValueIls: paid.length ? Math.round(revenue / paid.length) : 0,
     topProducts: [...byProduct.values()].sort((a, b) => b.count - a.count).slice(0, 5),
     topCategories: [],

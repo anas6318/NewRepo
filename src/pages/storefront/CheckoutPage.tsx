@@ -1,9 +1,10 @@
 /** Checkout (spec §14/§15): guest + account, zone-based delivery, honest
  * payment methods (only enabled+configured methods appear), full order
  * summary with no hidden fees. Totals recompute server-side on placement. */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "../../lib/router.tsx";
 import { localizeIssues } from "../../lib/form-errors.ts";
+import { cartNeedsSupplierConfirmation } from "../../lib/orders.ts";
 import { useI18n } from "../../lib/i18n/index.tsx";
 import { usePageMeta } from "../../lib/seo.tsx";
 import { dataService, isDemoMode } from "../../services/index.ts";
@@ -54,6 +55,39 @@ export function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  /**
+   * Does this cart have to wait for a supplier check? Resolved from the
+   * products' own availability records — the same rule place-order applies
+   * server-side — so Checkout and the order agree.
+   *
+   * Starts as `true`: until the products are loaded we do not yet know, and
+   * withholding bank details is the safe direction to be wrong in.
+   */
+  const [needsSupplierCheck, setNeedsSupplierCheck] = useState(true);
+  const cartSignature = cart.lines.map((l) => `${l.slug}|${l.version ?? ""}|${l.size}`).join(",");
+
+  useEffect(() => {
+    let alive = true;
+    if (cart.lines.length === 0) {
+      setNeedsSupplierCheck(false);
+      return;
+    }
+    dataService()
+      .listProducts()
+      .then((products) => {
+        if (alive) setNeedsSupplierCheck(cartNeedsSupplierConfirmation(cart.lines, products));
+      })
+      .catch(() => {
+        // Could not check — keep the details hidden rather than guess.
+        if (alive) setNeedsSupplierCheck(true);
+      });
+    return () => {
+      alive = false;
+    };
+    // cartSignature covers exactly the fields availability depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartSignature]);
 
   const availableMethods = useMemo(
     () => (settings?.paymentMethods ?? []).filter((m) => m.enabled && (m.configured || isDemoMode())),
@@ -252,12 +286,23 @@ export function CheckoutPage() {
               ))}
               {availableMethods.length === 0 && <p className="text-muted text-sm">{t("checkout.noMethods")}</p>}
             </div>
-            {method === "bank_transfer" && settings && (
-              <div className="card stack--sm stack" style={{ background: "var(--paper)", padding: "var(--sp-4)" }}>
+            {/* Bank transfer stays SELECTABLE either way — this only governs
+                whether the account details themselves are printed. CROWNED's
+                flow confirms availability before asking anyone to transfer
+                money, and the Confirmation page already withheld them; doing
+                it here too is what makes the two consistent. */}
+            {method === "bank_transfer" && settings && !needsSupplierCheck && (
+              <div className="card stack--sm stack" data-testid="bank-details" style={{ background: "var(--paper)", padding: "var(--sp-4)" }}>
                 <strong className="text-sm">{t("checkout.bankTransferInfoTitle")}</strong>
                 <p className="text-sm text-muted" style={{ whiteSpace: "pre-line" }}>
                   {L(settings.bankTransferInstructions)}
                 </p>
+              </div>
+            )}
+            {method === "bank_transfer" && needsSupplierCheck && (
+              <div className="card stack--sm stack" data-testid="bank-held" style={{ borderColor: "var(--warn)", padding: "var(--sp-4)" }}>
+                <strong className="text-sm">{t("checkout.bankTransferAfterConfirmation")}</strong>
+                <p className="text-sm text-muted">{t("checkout.bankTransferHeldBody")}</p>
               </div>
             )}
             {isDemoMode() && (

@@ -51,3 +51,27 @@ export function patchMatchedNoRows(status: number, body: string): boolean {
     return false;
   }
 }
+
+/* ── Dashboard status buckets ───────────────────────────────────────────────
+ *
+ * Which fulfilment statuses each Admin dashboard counter represents. Shared
+ * so the edge function and the demo service cannot drift — they had already
+ * drifted into the same wrong answer, which is how the bug survived.
+ *
+ * `awaitingSupplier` previously counted `payment_confirmed`, which is an
+ * order that has PAID, not one waiting on the supplier. The real status is
+ * `awaiting_supplier_confirmation`, and CROWNED's flow puts that step BEFORE
+ * payment — so the counter was reporting close to the opposite of its label.
+ *
+ * `quality_inspection` was missing from `inProduction`: an order sitting in
+ * it fell through every bucket and appeared in none.
+ */
+export const DASHBOARD_AWAITING_SUPPLIER = ["awaiting_supplier_confirmation"] as const;
+export const DASHBOARD_IN_PRODUCTION = ["sent_to_supplier", "production_started", "supplier_processing", "quality_inspection"] as const;
+export const DASHBOARD_DISPATCHED = ["supplier_dispatched"] as const;
+export const DASHBOARD_IN_TRANSIT = ["in_transit", "arrived_locally", "out_for_delivery"] as const;
+export const DASHBOARD_PENDING_PAYMENT = ["pending", "awaiting_payment"] as const;
+
+export function inBucket(bucket: readonly string[], status: string): boolean {
+  return bucket.includes(status);
+}

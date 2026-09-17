@@ -67,51 +67,94 @@ export function useMediaView(media: ProductMedia, resetKey: string) {
   const hoverCapable = useHoverCapable();
 
   const realSrc = media.real?.src ?? "";
-  // Guards every async callback: a load that resolves after the card has been
-  // recycled onto another product must not touch the new product's state.
-  const activeSrc = useRef(realSrc);
+
+  /**
+   * The intent token. EVERY expression of intent — hovering in, hovering out,
+   * tapping either option, moving to another product — bumps it, and every
+   * async completion captures it first and refuses to act if it has moved on.
+   *
+   * Without this, a hover that started a slow download and then ENDED would
+   * still reveal the photograph when the download finally finished, seconds
+   * after the pointer had left the card. Checking `pinned` and the src was
+   * not enough: neither changes on pointer-leave.
+   */
+  const intent = useRef(0);
+  /** Authoritative load state; `realStatus` mirrors it for rendering. */
   const statusRef = useRef<RealStatus>("idle");
-  statusRef.current = realStatus;
+  /** The src the current state belongs to — guards recycled cards. */
+  const activeSrc = useRef(realSrc);
+
+  /** The load currently in flight for `activeSrc`, so concurrent callers
+   * share one request instead of racing several. */
+  const inFlight = useRef<Promise<boolean> | null>(null);
+
+  const setStatus = useCallback((next: RealStatus) => {
+    statusRef.current = next;
+    setRealStatus(next);
+  }, []);
 
   useEffect(() => {
+    intent.current++;
     setView(media.defaultView);
     setPending(null);
-    setRealStatus("idle");
-    statusRef.current = "idle";
+    setStatus("idle");
     activeSrc.current = realSrc;
+    inFlight.current = null;
     pinned.current = false;
     // Cards are reused as the grid filters; a new product starts fresh.
-  }, [resetKey, media.defaultView, realSrc]);
+  }, [resetKey, media.defaultView, realSrc, setStatus]);
 
   /**
    * Starts (or reuses) the photograph's download. Resolves to true only when
-   * the bytes are decodable — a 404, a DNS failure or a `file:///` URL that
-   * the browser refuses all resolve to false.
+   * the bytes are decodable — a 404, a DNS failure or a `file:///` URL the
+   * browser refuses all resolve to false.
+   *
+   * `force` is what makes a failure recoverable. A previous error short-
+   * circuits every PASSIVE caller (hover, touch-start warm-up), so a broken
+   * URL is not re-requested on every pointer movement. A DELIBERATE tap on
+   * "Real Product" passes force and gets a genuine new attempt — otherwise a
+   * momentary loss of signal on a phone would make the photograph
+   * unreachable until the page was reloaded.
    */
-  const loadReal = useCallback((): Promise<boolean> => {
-    if (!realSrc) return Promise.resolve(false);
-    if (statusRef.current === "ready") return Promise.resolve(true);
-    if (statusRef.current === "error") return Promise.resolve(false);
-    if (typeof window === "undefined" || typeof window.Image !== "function") return Promise.resolve(false);
+  const loadReal = useCallback(
+    (force = false): Promise<boolean> => {
+      if (!realSrc) return Promise.resolve(false);
+      if (statusRef.current === "ready") return Promise.resolve(true);
+      if (statusRef.current === "error" && !force) return Promise.resolve(false);
+      if (statusRef.current === "loading" && !force) {
+        // A load is already in flight for this src; do not start a second one.
+        return inFlight.current ?? Promise.resolve(false);
+      }
+      if (typeof window === "undefined" || typeof window.Image !== "function") return Promise.resolve(false);
 
-    const src = realSrc;
-    setRealStatus("loading");
-    statusRef.current = "loading";
-    return new Promise<boolean>((resolve) => {
-      const img = new window.Image();
-      const settle = (ok: boolean) => {
-        if (activeSrc.current !== src) return resolve(false);
-        setRealStatus(ok ? "ready" : "error");
-        statusRef.current = ok ? "ready" : "error";
-        resolve(ok);
-      };
-      img.onload = () => settle(true);
-      img.onerror = () => settle(false);
-      img.src = src;
-      // A cached image can be complete before the handlers attach.
-      if (img.complete && img.naturalWidth > 0) settle(true);
-    });
-  }, [realSrc]);
+      const src = realSrc;
+      setStatus("loading");
+      const attempt = new Promise<boolean>((resolve) => {
+        const img = new window.Image();
+        let settled = false;
+        const settle = (ok: boolean) => {
+          if (settled) return;
+          settled = true;
+          // A card recycled onto another product must not have its new state
+          // written by the old product's load.
+          if (activeSrc.current !== src) return resolve(false);
+          setStatus(ok ? "ready" : "error");
+          resolve(ok);
+        };
+        img.onload = () => settle(true);
+        img.onerror = () => settle(false);
+        // Deliberately the SAME url MediaFrame will render. A cache-busting
+        // query string would make this preload verify a different resource
+        // from the one that ends up in the <img>.
+        img.src = src;
+        // A cached image can be complete before the handlers attach.
+        if (img.complete && img.naturalWidth > 0) settle(true);
+      });
+      inFlight.current = attempt;
+      return attempt;
+    },
+    [realSrc, setStatus],
+  );
 
   /** Desktop hover / touch-start warm-up. Never changes what is displayed. */
   const prefetchReal = useCallback(() => {
@@ -120,9 +163,11 @@ export function useMediaView(media: ProductMedia, resetKey: string) {
 
   const choose = useCallback(
     (next: MediaView) => {
+      const token = ++intent.current;
       pinned.current = true;
       if (next !== "real") {
-        // The styled render is already on screen; switching back is instant.
+        // The styled render is already on screen; switching back is instant,
+        // and bumping the token cancels any reveal still in flight.
         setPending(null);
         setView(next);
         return;
@@ -134,8 +179,9 @@ export function useMediaView(media: ProductMedia, resetKey: string) {
       }
       const src = realSrc;
       setPending("real");
-      void loadReal().then((ok) => {
-        if (activeSrc.current !== src) return;
+      // force: a deliberate tap is exactly the retry a previous failure earns.
+      void loadReal(true).then((ok) => {
+        if (intent.current !== token || activeSrc.current !== src) return;
         setPending(null);
         // On failure the view stays where it was, so the pressed button and
         // the visible image continue to agree. The frame surfaces the error.
@@ -148,15 +194,19 @@ export function useMediaView(media: ProductMedia, resetKey: string) {
   const preview = useCallback(
     (next: MediaView) => {
       if (!media.canSwitch || pinned.current) return;
+      const token = ++intent.current;
       if (next !== "real") {
+        // Pointer left. The token bump above is what stops an in-flight
+        // reveal from firing after the fact.
         setView(next);
         return;
       }
       // Hover only reveals the photograph once it is genuinely available, for
-      // exactly the same reason a tap does.
+      // exactly the same reason a tap does — and only if the pointer is still
+      // here when it arrives.
       const src = realSrc;
       void loadReal().then((ok) => {
-        if (activeSrc.current !== src || pinned.current || !ok) return;
+        if (intent.current !== token || activeSrc.current !== src || pinned.current || !ok) return;
         setView("real");
       });
     },
