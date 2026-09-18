@@ -32,6 +32,9 @@ import {
   sizeKey,
 } from "../../services/sizing.ts";
 import { SafeImage } from "../../components/ui/SafeImage.tsx";
+import { findUnreachableImages } from "../../lib/image-probe.ts";
+import { getConfig } from "../../lib/env.ts";
+import { parseStoragePublicUrl, storagePublicUrl, storageUrlProblem, storageUrlProblemMessage } from "../../../supabase/functions/_shared/storage-url.ts";
 
 export function AdminProducts() {
   const [products, setProducts] = useState<Product[] | null>(null);
@@ -197,6 +200,8 @@ export function AdminProductEdit({ id }: { id: string }) {
   const isNew = id === "new";
 
   const [imageErrors, setImageErrors] = useState<string[]>([]);
+  /** Set once the owner has been warned that an image URL does not resolve. */
+  const [unreachableAck, setUnreachableAck] = useState(false);
 
   useEffect(() => {
     document.title = "Edit product · CROWNED admin";
@@ -228,9 +233,32 @@ export function AdminProductEdit({ id }: { id: string }) {
     if (imageIssues.length) {
       toast.push(imageIssues[0]!, "error");
       setImageErrors(imageIssues);
+      setUnreachableAck(false);
+      return;
+    }
+
+    // A well-formed https:// Storage URL can still point at nothing. The Real
+    // Product image that broke the live product page was exactly that: valid
+    // URL, missing folder segment, 404. Ask the browser to load each image
+    // before saving, so a dead reference is caught here and not by a customer.
+    const dead = await findUnreachableImages(product.images.map((i) => i.src ?? ""));
+    if (dead.length && !unreachableAck) {
+      const detail = dead.map((d) => {
+        const parsed = parseStoragePublicUrl(d.src);
+        const hint = parsed
+          ? parsed.depth === 0
+            ? ` — the object path is just a file name ("${parsed.objectPath}") with no folder. Copy the FULL path from the Storage browser: nested folders are part of the key.`
+            : ` — no object at "${parsed.objectPath}" in bucket "${parsed.bucket}".`
+          : "";
+        return `${d.timedOut ? "Timed out loading" : "Could not load"} ${d.src}${hint}`;
+      });
+      setImageErrors([...detail, "Press Save again to store these URLs anyway (for example if the image has not been uploaded yet)."]);
+      setUnreachableAck(true);
+      toast.push(detail[0]!, "error");
       return;
     }
     setImageErrors([]);
+    setUnreachableAck(false);
     const res = await dataService().adminSaveProduct(product);
     if (res.ok) {
       toast.push("Saved");
@@ -733,6 +761,7 @@ function RoleImageField({
 }) {
   const customerTerm = role === "styled" ? "media.styled" : "media.real";
   const roleProblem = imageUrlProblem(image?.src ?? "");
+  const storageProblem = roleProblem ? undefined : storageUrlProblem(image?.src ?? "");
   return (
     <div className="media-admin__slot">
       <label className="field">
@@ -749,6 +778,11 @@ function RoleImageField({
         {roleProblem && (
           <span className="field__error" id={`${role}-url-err`} role="alert">
             {imageUrlProblemMessage(roleProblem, image?.src ?? "")}
+          </span>
+        )}
+        {storageProblem && (
+          <span className="field__error" id={`${role}-url-err`} role="alert">
+            {storageUrlProblemMessage(storageProblem)}
           </span>
         )}
         <span className="field__hint">{help}</span>
@@ -837,6 +871,8 @@ function ProductMediaEditor({
             ? `Only the ${media.views[0] === "styled" ? "styled preview" : "real photograph"} is set. It is shown on its own and labelled honestly; no switch appears until both exist.`
             : "Neither is set. The images below are shown unlabelled, exactly as before."}
       </p>
+
+      <StorageUrlHelper />
 
       <div className="stack">
         <h3 className="field__label">Gallery images (back, close-ups, badge and personalization shots)</h3>
@@ -1346,5 +1382,51 @@ function SupplierAvailabilityEditor({
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * Builds a correct Storage public URL from the bucket and the object's FULL
+ * path, so nobody has to assemble one by hand.
+ *
+ * Hand-assembly is what broke the live product page: the URL was built from
+ * the file name and the folder it lived in was dropped, so Storage returned
+ * 404 for a URL that looked perfectly reasonable. Paste the path exactly as
+ * the Storage browser shows it — every folder, spaces and all — and the
+ * encoding is handled here.
+ */
+function StorageUrlHelper() {
+  const [bucket, setBucket] = useState("product-images");
+  const [objectPath, setObjectPath] = useState("");
+  const built = storagePublicUrl(getConfig().supabaseUrl, bucket, objectPath);
+  return (
+    <details className="card stack stack--sm">
+      <summary className="field__label" style={{ cursor: "pointer" }}>
+        Build a Supabase Storage URL
+      </summary>
+      <p className="field__hint">
+        Copy the object&rsquo;s full path from Storage — including every folder, e.g.{" "}
+        <code>product-images(white background_/shirt-front.png</code> — not just the file name.
+      </p>
+      <label className="field">
+        <span className="field__label">Bucket</span>
+        <input className="input num" dir="ltr" value={bucket} onChange={(e) => setBucket(e.target.value)} />
+      </label>
+      <label className="field">
+        <span className="field__label">Object path (folders included)</span>
+        <input className="input num" dir="ltr" placeholder="folder/sub folder/file.png" value={objectPath} onChange={(e) => setObjectPath(e.target.value)} />
+      </label>
+      {built && (
+        <>
+          <p className="field__hint" style={{ wordBreak: "break-all" }} data-testid="built-storage-url">
+            {built}
+          </p>
+          <button type="button" className="btn btn--outline btn--sm" style={{ alignSelf: "flex-start" }} onClick={() => void navigator.clipboard?.writeText(built)}>
+            Copy URL
+          </button>
+        </>
+      )}
+      {!getConfig().supabaseUrl && <p className="field__hint">No Supabase project is configured in this build, so only the path part is meaningful.</p>}
+    </details>
   );
 }
