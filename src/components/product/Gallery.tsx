@@ -38,7 +38,12 @@ export function Gallery({ product }: { product: Product }) {
   const current = imageOf(slides[Math.min(active, slides.length - 1)]);
 
   return (
-    <div className="gallery">
+    // `position: sticky` on .gallery creates a stacking context, which traps
+    // the zoom overlay inside it — so the dialog (z-index 70) still painted
+    // BELOW the site header (40) and its Close button, top-right, sat under
+    // the header and could not be clicked. Lifting the gallery only while the
+    // dialog is open keeps normal scrolling unchanged.
+    <div className={`gallery${zoom ? " is-zoomed" : ""}`}>
       <div className="gallery__stage">
       <div className="gallery__track" role="group" aria-roledescription="carousel" aria-label={L(product.name)}>
         {slides.map((slide, i) => (

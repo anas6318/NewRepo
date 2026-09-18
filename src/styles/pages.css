@@ -1097,11 +1097,48 @@
 .gallery {
   position: sticky;
   inset-block-start: calc(var(--header-h) + var(--sp-4));
+  /* A sticky box TALLER THAN THE SCROLLPORT can never bring its own bottom
+     edge into view: it pins at `inset-block-start` and stays there, so
+     everything below the fold stays below the fold at every scroll position.
+     The media toggle is anchored to that bottom edge, which made "Real
+     Product" permanently unreachable on laptop viewports — present in the
+     DOM, visible, non-zero size, and impossible to click. Bounding the
+     gallery to the space actually available is what makes the controls
+     reachable; `min-block-size: 0` lets the stage give up height rather than
+     overflow the cap. */
+  display: flex;
+  flex-direction: column;
+  max-block-size: calc(100dvh - var(--header-h) - var(--sp-8));
+  min-block-size: 0;
+}
+
+.gallery__stage {
+  min-block-size: 0;
+  flex: 0 1 auto;
+}
+
+/* The slide keeps its 4/5 ratio until the viewport is too short for it, then
+   yields height instead of pushing the controls off-screen. object-fit:cover
+   on the image means the shirt still fills the frame. */
+.gallery .gallery__slide {
+  max-block-size: 100%;
+  min-block-size: 0;
+}
+
+/* While the zoom dialog is open the gallery must outrank the header, or its
+   own overlay is painted underneath it. Scoped to the open state so the
+   gallery never covers the header during ordinary scrolling. */
+.gallery.is-zoomed {
+  z-index: var(--z-dialog);
 }
 
 @media (max-width: 900px) {
   .gallery {
     position: static;
+    /* Not sticky here, so there is nothing to bound — and a cap would
+       needlessly shrink the image on a phone. */
+    display: block;
+    max-block-size: none;
   }
 }
 
@@ -1388,11 +1425,18 @@
 
 .gallery__stage {
   position: relative;
+  /* Own stacking context, so the controls below are layered against the
+     slides and nothing outside the gallery can interleave between them. */
+  isolation: isolate;
 }
 
 
 .gallery__media-ui {
   position: absolute;
+  /* Explicitly above the slide buttons rather than relying on DOM order:
+     the slide is a full-size <button> covering the image, and source order
+     is too easy to change by accident for something this load-bearing. */
+  z-index: 2;
   inset-inline: var(--sp-4);
   inset-block-end: var(--sp-4);
   display: flex;
