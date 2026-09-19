@@ -1112,48 +1112,17 @@
   min-block-size: 0;
 }
 
-/*
- * DESKTOP SIZING: height is the budget, WIDTH follows from it.
- *
- * Capping only `.gallery` was not enough — a cap on the outer box does not
- * reach the track or the slide. The slide is `flex: 0 0 100%` with
- * `aspect-ratio: 4 / 5`, so its height was still derived from the width of
- * the 7fr product column: 658px wide became an 823px-tall image that ran
- * ~120px past the bottom of the viewport, which is why the page needed
- * zooming out to see the shirt.
- *
- * Inverting the dependency fixes it at the source. `.gallery` is a flex
- * column with a viewport-bounded height, so the stage receives whatever
- * height is left after the caption and thumbnails — no magic numbers. Giving
- * the STAGE the 4/5 ratio with `inline-size: auto` makes its width derive
- * from that height, and the track, slide and image simply fill it. The frame
- * keeps its exact proportions, nothing is stretched, and the cropping is
- * unchanged — the media area is just as large as it can be and still fit.
- */
 .gallery__stage {
-  flex: 1 1 auto;
   min-block-size: 0;
+  flex: 0 1 auto;
 }
 
-@media (min-width: 901px) {
-  .gallery__stage {
-    aspect-ratio: 4 / 5;
-    inline-size: auto;
-    max-inline-size: 100%;
-    margin-inline: auto;
-  }
-
-  .gallery__track {
-    block-size: 100%;
-  }
-
-  /* The slide no longer derives height from width — it fills the stage, and
-     the stage is what carries the ratio now. */
-  .gallery .gallery__slide {
-    block-size: 100%;
-    aspect-ratio: auto;
-    min-block-size: 0;
-  }
+/* The slide keeps its 4/5 ratio until the viewport is too short for it, then
+   yields height instead of pushing the controls off-screen. object-fit:cover
+   on the image means the shirt still fills the frame. */
+.gallery .gallery__slide {
+  max-block-size: 100%;
+  min-block-size: 0;
 }
 
 /* While the zoom dialog is open the gallery must outrank the header, or its
@@ -1196,19 +1165,10 @@
   cursor: zoom-in;
 }
 
-/* `.media-stack > .media-stack__img` in components.css sets `cover` at
-   specificity (0,2,0), so the hero needs (0,3,0) to win here. The product
-   cards keep `cover`, where a uniform tile matters more than completeness. */
-.gallery__slide .media-stack > .media-stack__img,
 .gallery__slide img {
   width: 100%;
   height: 100%;
-  /* `contain`, not `cover`: the product-detail hero should show the WHOLE
-     shirt. A real product photograph is rarely exactly 4:5, and cropping the
-     hem or the sleeves off the one image a customer is buying from is worse
-     than a little letterboxing against the slide's dark background. The card
-     grid keeps `cover`, where a uniform tile matters more. */
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .gallery__thumbs {
