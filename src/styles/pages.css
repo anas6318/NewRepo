@@ -1097,32 +1097,39 @@
 .gallery {
   position: sticky;
   inset-block-start: calc(var(--header-h) + var(--sp-4));
-  /* A sticky box TALLER THAN THE SCROLLPORT can never bring its own bottom
-     edge into view: it pins at `inset-block-start` and stays there, so
-     everything below the fold stays below the fold at every scroll position.
-     The media toggle is anchored to that bottom edge, which made "Real
-     Product" permanently unreachable on laptop viewports — present in the
-     DOM, visible, non-zero size, and impossible to click. Bounding the
-     gallery to the space actually available is what makes the controls
-     reachable; `min-block-size: 0` lets the stage give up height rather than
-     overflow the cap. */
-  display: flex;
-  flex-direction: column;
-  max-block-size: calc(100dvh - var(--header-h) - var(--sp-8));
-  min-block-size: 0;
 }
 
-.gallery__stage {
-  min-block-size: 0;
-  flex: 0 1 auto;
-}
-
-/* The slide keeps its 4/5 ratio until the viewport is too short for it, then
-   yields height instead of pushing the controls off-screen. object-fit:cover
-   on the image means the shirt still fills the frame. */
-.gallery .gallery__slide {
-  max-block-size: 100%;
-  min-block-size: 0;
+/*
+ * DESKTOP SIZING — one rule, and the existing 4/5 ratio does the rest.
+ *
+ * `.product-layout` gives the gallery a 7fr column (~658px), and
+ * `.gallery__slide` derives its height from that width via
+ * `aspect-ratio: 4 / 5` — so the hero came out ~823px tall and the page had
+ * to be zoomed out to take it in. Capping the gallery's INLINE size fixes it
+ * at the source: the slide's width is smaller, so the ratio produces a
+ * comfortable height on its own. No height chain, nothing stretched, nothing
+ * cropped, and the frame stays exactly 4:5.
+ *
+ * The clamp tracks viewport width between two deliberate bounds — 500px so
+ * the shirt never becomes a thumbnail, 560px so it never dominates a large
+ * screen — and `margin-inline: auto` centres the whole unit (image, caption
+ * and thumbnails together) inside the wider column.
+ */
+@media (min-width: 901px) {
+  .gallery {
+    /*
+     * First term: the intended band, tracking viewport WIDTH.
+     * Second term: a floor-safety guard tracking viewport HEIGHT — the widest
+     * the frame may be and still have its 4:5 height fit under the sticky
+     * offset, i.e. (available height) x 4/5. It is inert at every normal
+     * laptop size (it resolves to 550px at 1366x768, 576px at 1280x800 and
+     * 656px at 1440x900, all wider than the clamp) and only takes over on an
+     * unusually short window, where without it a 700px-tall hero would push
+     * the Styled/Real controls back off the screen.
+     */
+    max-inline-size: min(clamp(500px, 40vw, 560px), calc((100dvh - var(--header-h) - var(--sp-4)) * 0.8));
+    margin-inline: auto;
+  }
 }
 
 /* While the zoom dialog is open the gallery must outrank the header, or its
@@ -1135,10 +1142,6 @@
 @media (max-width: 900px) {
   .gallery {
     position: static;
-    /* Not sticky here, so there is nothing to bound — and a cap would
-       needlessly shrink the image on a phone. */
-    display: block;
-    max-block-size: none;
   }
 }
 
@@ -1165,10 +1168,19 @@
   cursor: zoom-in;
 }
 
+/* `.media-stack > .media-stack__img` in components.css sets `cover` at
+   specificity (0,2,0), so the hero needs (0,3,0) to win here. The product
+   cards keep `cover`, where a uniform tile matters more than completeness. */
+.gallery__slide .media-stack > .media-stack__img,
 .gallery__slide img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* `contain`, not `cover`: the product-detail hero should show the WHOLE
+     shirt. A real product photograph is rarely exactly 4:5, and cropping the
+     hem or the sleeves off the one image a customer is buying from is worse
+     than a little letterboxing against the slide's dark background. The card
+     grid keeps `cover`, where a uniform tile matters more. */
+  object-fit: contain;
 }
 
 .gallery__thumbs {

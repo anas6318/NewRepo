@@ -109,21 +109,33 @@ export async function the_media_toggle_is_reachable_by_a_pointer_on_laptop_viewp
 
 export async function the_sticky_gallery_always_fits_the_viewport({ newPage, BASE }) {
   // The root cause, stated directly: a sticky element taller than the space
-  // it can occupy can never show its own bottom edge.
+  // it can occupy can never show its own bottom edge — and the media controls
+  // live on the bottom edge of the STAGE, which is what this measures. The
+  // thumbnail strip below the stage is allowed to sit past the fold; it is
+  // ordinary page content and scrolling reaches it.
   for (const vp of [LAPTOP, SMALL_LAPTOP, { width: 1440, height: 600 }]) {
     const { page, context } = await newPage(vp);
     try {
       await page.goto(`${BASE}/en/product/${DUAL}`, { waitUntil: "networkidle" });
+      // Measured as HEIGHT + sticky offset rather than a live bottom edge, so
+      // the guarantee holds at every scroll position instead of only the one
+      // the test happened to stop at.
       const m = await page.evaluate(() => {
         const g = document.querySelector(".gallery");
+        const stage = document.querySelector(".gallery__stage");
         const cs = window.getComputedStyle(g);
-        const top = parseFloat(cs.insetBlockStart) || 0;
-        return { h: g.getBoundingClientRect().height, position: cs.position, top, vh: window.innerHeight };
+        return {
+          position: cs.position,
+          stickyTop: parseFloat(cs.insetBlockStart) || 0,
+          stageHeight: stage.getBoundingClientRect().height,
+          vh: window.innerHeight,
+        };
       });
       if (m.position !== "sticky") continue; // static below 900px — nothing to bound
+      const pinnedBottom = Math.round(m.stickyTop + m.stageHeight);
       assert.ok(
-        m.h + m.top <= m.vh + 1,
-        `${vp.width}x${vp.height}: sticky gallery is ${Math.round(m.h)}px at top ${m.top}px in a ${m.vh}px viewport — its bottom edge, and the controls on it, can never be scrolled into view`,
+        pinnedBottom <= m.vh + 1,
+        `${vp.width}x${vp.height}: once pinned the media stage would end at ${pinnedBottom} in a ${m.vh}px viewport — its bottom edge, and the controls on it, could never be scrolled into view`,
       );
     } finally {
       await context.close();

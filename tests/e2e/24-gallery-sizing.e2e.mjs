@@ -69,12 +69,46 @@ export async function the_whole_media_area_fits_the_laptop_viewport({ newPage, B
         assert.ok(g.slide.bottom <= g.vh, `${at}: slide bottom ${g.slide.bottom} must be within ${g.vh} (was 903)`);
         assert.ok(g.track.bottom <= g.vh, `${at}: track bottom ${g.track.bottom} within ${g.vh}`);
         assert.ok(g.stage.bottom <= g.vh, `${at}: stage bottom ${g.stage.bottom} within ${g.vh}`);
-        assert.ok(g.gallery.bottom <= g.vh, `${at}: gallery bottom ${g.gallery.bottom} within ${g.vh}`);
+        // The gallery as a whole includes the thumbnail strip, which is
+        // ordinary scrollable content and may extend past the fold. What must
+        // fit without scrolling is the hero and its controls, asserted above
+        // and below.
         assert.ok(g.toggle.bottom <= g.vh && g.toggle.top >= 0, `${at}: media controls on screen (${g.toggle.top}–${g.toggle.bottom})`);
         assert.ok(g.image.bottom <= g.vh, `${at}: the image itself ends at ${g.image.bottom}, within ${g.vh}`);
         assert.ok(g.image.h <= g.stage.h + 1, `${at}: image height ${g.image.h} does not exceed the stage's ${g.stage.h}`);
         assert.equal(g.overflow <= 2, true, `${at}: no horizontal overflow (${g.overflow}px)`);
       }
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+export async function the_desktop_gallery_uses_the_intended_width_bounds({ newPage, BASE }) {
+  // The sizing rule is a single inline-size clamp: clamp(500px, 40vw, 560px).
+  // Asserting the RENDERED width keeps that rule honest if anything upstream
+  // changes the column.
+  for (const vp of [...LAPTOPS, { width: 1920, height: 1080 }]) {
+    const { page, context } = await newPage(vp);
+    try {
+      await page.goto(`${BASE}/en/product/${DUAL}`, { waitUntil: "networkidle" });
+      await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
+      await settle(page);
+      const g = await geometry(page);
+      assert.ok(g.slide.w >= 499 && g.slide.w <= 561, `${vp.width}x${vp.height}: hero width ${g.slide.w}px is inside the 500–560 band`);
+      // Centred inside its own GRID TRACK — not inside the whole two-column
+      // layout, which is what `parentElement` would measure.
+      const gaps = await page.evaluate(() => {
+        const layout = document.querySelector(".product-layout");
+        const track = parseFloat(window.getComputedStyle(layout).gridTemplateColumns.split(" ")[0]);
+        const columnLeft = layout.getBoundingClientRect().left;
+        const rect = document.querySelector(".gallery").getBoundingClientRect();
+        return { left: Math.round(rect.left - columnLeft), right: Math.round(columnLeft + track - rect.right), track: Math.round(track) };
+      });
+      assert.ok(
+        Math.abs(gaps.left - gaps.right) <= 2,
+        `${vp.width}x${vp.height}: gallery is centred in its ${gaps.track}px column (gaps ${gaps.left} / ${gaps.right})`,
+      );
     } finally {
       await context.close();
     }
