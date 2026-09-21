@@ -9,7 +9,7 @@
  * save-settings, dashboard, list-badges, save-badges, list-promotions,
  * save-promotions.
  */
-import { audit, dbInsert, dbSelect, dbUpdate, dbUpsert, db, handleError, HttpError, json, preflight, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
+import { audit, dbInsert, dbSelect, dbUpdate, dbUpsert, db, handleError, HttpError, json, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
 import { productImageUrlProblems } from "../_shared/image-url.ts";
 import {
   DASHBOARD_AWAITING_SUPPLIER,
