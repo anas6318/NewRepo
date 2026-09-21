@@ -1127,7 +1127,7 @@
      * unusually short window, where without it a 700px-tall hero would push
      * the Styled/Real controls back off the screen.
      */
-    max-inline-size: min(clamp(500px, 40vw, 560px), calc((100dvh - var(--header-h) - var(--sp-4)) * 0.8));
+    inline-size: min(100%, min(clamp(500px, 40vw, 560px), calc((100dvh - var(--header-h) - var(--sp-4)) * 0.8)));
     margin-inline: auto;
   }
 }
