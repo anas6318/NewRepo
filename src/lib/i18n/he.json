@@ -32,7 +32,12 @@
     "more": "עוד",
     "customerCare": "שירות לקוחות",
     "openMenu": "פתיחת התפריט",
-    "shopMenu": "תפריט החנות"
+    "shopMenu": "תפריט החנות",
+    "football": "כדורגל",
+    "shopByClub": "קנייה לפי מועדון",
+    "allClubs": "כל המועדונים והנבחרות",
+    "delivery": "משלוח",
+    "faq": "עזרה ושאלות נפוצות"
   },
   "home": {
     "heroTitle": "האייקונים של המשחק. נבחרו על ידי CROWNED.",
@@ -155,7 +160,13 @@
     "versionRetro": "רטרו",
     "badge": "פאץ׳",
     "badgeNone": "ללא פאץ׳",
-    "badgeIncluded": "כלול"
+    "badgeIncluded": "כלול",
+    "personalizationTitle": "השם שלך. המספר שלך.",
+    "carouselLabel": "תמונות המוצר",
+    "previousImage": "התמונה הקודמת",
+    "nextImage": "התמונה הבאה",
+    "goToImage": "מעבר לתמונה {n}",
+    "styledLeadNote": "התמונה הראשונה היא תמונת הדמיה מעוצבת. התמונות שאחריה מציגות את המוצר עצמו."
   },
   "media": {
     "toggleLabel": "תצוגת תמונת המוצר",

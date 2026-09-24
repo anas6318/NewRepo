@@ -12,7 +12,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "../../lib/router.tsx";
 import { useI18n } from "../../lib/i18n/index.tsx";
-import { PRIMARY_NAV, SHOP_MENU, type NavGroup, type NavItem } from "../../content/navigation.ts";
+import { useL } from "../ui/bits.tsx";
+import { ALL_CLUBS_PATH, PRIMARY_NAV, SHOP_MENU, clubNavItems, type NavGroup, type NavItem } from "../../content/navigation.ts";
 import { IconChevronDown } from "../ui/Icons.tsx";
 
 export function DesktopNavigation() {
@@ -34,6 +35,7 @@ const CLOSE_DELAY_MS = 160;
 
 function ShopDropdown({ groups }: { groups: NavGroup[] }) {
   const { locale, t } = useI18n();
+  const lt = useL();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -122,7 +124,7 @@ function ShopDropdown({ groups }: { groups: NavGroup[] }) {
           }
         }}
       >
-        {t("nav.shop")}
+        {t("nav.football")}
         <IconChevronDown size={14} className="nav-dropdown__chevron" />
       </button>
 
@@ -143,6 +145,29 @@ function ShopDropdown({ groups }: { groups: NavGroup[] }) {
             </ul>
           </div>
         ))}
+
+        {/* Shop by Club — visually its own column, because browsing by club is
+            a different intent from browsing by product type. The links are
+            saved searches over the existing catalog index, not a new model. */}
+        <div className="nav-dropdown__group nav-dropdown__group--clubs">
+          <p className="nav-dropdown__label" id="shop-menu-clubs">
+            {t("nav.shopByClub")}
+          </p>
+          <ul className="nav-dropdown__list" aria-labelledby="shop-menu-clubs">
+            {clubNavItems().map((club) => (
+              <li key={club.id}>
+                <Link to={`${L}${club.path}`} className="nav-dropdown__link" data-club={club.id}>
+                  {lt(club.label)}
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Link to={`${L}${ALL_CLUBS_PATH}`} className="nav-dropdown__link nav-dropdown__link--all">
+                {t("nav.allClubs")}
+              </Link>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   );

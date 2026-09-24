@@ -57,7 +57,7 @@ test("the footer renders exactly one copyright statement", () => {
  * site actually passes it, instead of finding out from a customer looking at
  * "your order {orderNumber}".
  */
-const SUPPLIED_PLACEHOLDERS = new Set(["orderNumber", "year", "name", "date", "min", "max", "count", "size", "sizes", "product", "query", "url"]);
+const SUPPLIED_PLACEHOLDERS = new Set(["orderNumber", "year", "name", "date", "min", "max", "count", "size", "sizes", "product", "query", "url", "n"]);
 
 test("every translation placeholder is one a t() call supplies", () => {
   for (const locale of LOCALES) {

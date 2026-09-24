@@ -12,8 +12,11 @@ export async function arabic_is_rtl_and_fully_arabic({ page, BASE }) {
   await page.goto(`${BASE}/ar`, { waitUntil: "networkidle" });
   assert.equal(await page.evaluate(() => document.documentElement.dir), "rtl");
   assert.equal(await page.evaluate(() => document.documentElement.lang), "ar");
-  const nav = await page.locator(".site-header__nav").textContent();
-  assert.ok(nav?.includes("المتجر"), "nav is Arabic");
+  const nav = (await page.locator(".site-header__nav").textContent()) ?? "";
+  // The primary menu is FOOTBALL ("كرة القدم") since the navigation was
+  // reorganised around it; the old assertion pinned "المتجر" (Shop).
+  assert.ok(nav.includes("كرة القدم"), `nav is Arabic — got "${nav.trim()}"`);
+  assert.ok(!/[A-Za-z]{4,}/.test(nav), `no Latin words leak into the Arabic nav — got "${nav.trim()}"`);
 }
 
 export async function hebrew_is_rtl_english_is_ltr({ page, BASE }) {

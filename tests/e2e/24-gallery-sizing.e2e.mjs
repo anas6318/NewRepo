@@ -38,7 +38,7 @@ async function geometry(page) {
       stage: box(".gallery__stage"),
       track: box(".gallery__track"),
       slide: box(".gallery__slide"),
-      toggle: box(".media-toggle--page"),
+      toggle: box(".gallery__thumbs"),
       image: ir ? { w: Math.round(ir.width), h: Math.round(ir.height), bottom: Math.round(ir.bottom) } : null,
       objectFit: img ? window.getComputedStyle(img).objectFit : null,
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -58,7 +58,7 @@ export async function the_whole_media_area_fits_the_laptop_viewport({ newPage, B
     try {
       for (const locale of ["en", "ar"]) {
         await page.goto(`${BASE}/${locale}/product/${DUAL}`, { waitUntil: "networkidle" });
-        await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
+        await page.waitForSelector(".gallery__track", { timeout: 6000 });
         await settle(page);
         const g = await geometry(page);
         const at = `${vp.width}x${vp.height} ${locale}`;
@@ -73,7 +73,9 @@ export async function the_whole_media_area_fits_the_laptop_viewport({ newPage, B
         // ordinary scrollable content and may extend past the fold. What must
         // fit without scrolling is the hero and its controls, asserted above
         // and below.
-        assert.ok(g.toggle.bottom <= g.vh && g.toggle.top >= 0, `${at}: media controls on screen (${g.toggle.top}–${g.toggle.bottom})`);
+        // The thumbnail strip is ordinary scrollable content below the hero
+        // and may sit past the fold on a short laptop; what must fit without
+        // scrolling is the hero itself, asserted above.
         assert.ok(g.image.bottom <= g.vh, `${at}: the image itself ends at ${g.image.bottom}, within ${g.vh}`);
         assert.ok(g.image.h <= g.stage.h + 1, `${at}: image height ${g.image.h} does not exceed the stage's ${g.stage.h}`);
         assert.equal(g.overflow <= 2, true, `${at}: no horizontal overflow (${g.overflow}px)`);
@@ -92,7 +94,7 @@ export async function the_desktop_gallery_uses_the_intended_width_bounds({ newPa
     const { page, context } = await newPage(vp);
     try {
       await page.goto(`${BASE}/en/product/${DUAL}`, { waitUntil: "networkidle" });
-      await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
+      await page.waitForSelector(".gallery__track", { timeout: 6000 });
       await settle(page);
       const g = await geometry(page);
       assert.ok(g.slide.w >= 499 && g.slide.w <= 561, `${vp.width}x${vp.height}: hero width ${g.slide.w}px is inside the 500–560 band`);
@@ -120,7 +122,7 @@ export async function the_media_frame_keeps_its_four_by_five_proportions({ newPa
     const { page, context } = await newPage(vp);
     try {
       await page.goto(`${BASE}/en/product/${DUAL}`, { waitUntil: "networkidle" });
-      await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
+      await page.waitForSelector(".gallery__track", { timeout: 6000 });
       await settle(page);
       const g = await geometry(page);
       const ratio = g.slide.w / g.slide.h;
@@ -139,7 +141,7 @@ export async function the_image_is_large_enough_to_be_worth_looking_at({ newPage
     const { page, context } = await newPage(vp);
     try {
       await page.goto(`${BASE}/en/product/${DUAL}`, { waitUntil: "networkidle" });
-      await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
+      await page.waitForSelector(".gallery__track", { timeout: 6000 });
       await settle(page);
       const g = await geometry(page);
       assert.ok(g.slide.h >= g.vh * 0.55, `${vp.width}x${vp.height}: the image still fills most of the viewport height (${g.slide.h} of ${g.vh})`);
@@ -183,29 +185,6 @@ export async function mobile_sizing_is_unchanged({ newPage, BASE }) {
 
 /* ── the flow, with a real image and with a broken one ──────────────────── */
 
-export async function styled_and_real_switch_both_ways_with_a_working_image({ newPage, BASE }) {
-  const { page, context, pageErrors } = await newPage({ width: 1366, height: 768 });
-  try {
-    await page.goto(`${BASE}/en/product/${DUAL}`, { waitUntil: "networkidle" });
-    await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
-    await settle(page);
-    const heroSrc = () => page.evaluate(() => document.querySelector(".gallery__track .media-stack__img.is-on")?.getAttribute("src") ?? null);
-
-    const styled = await heroSrc();
-    assert.ok(styled && !styled.includes("-real"), `starts styled — ${styled}`);
-
-    await page.locator('.media-toggle--page button[data-view="real"]').click();
-    await page.waitForFunction(() => document.querySelector(".gallery__track .media-stack__img.is-on")?.getAttribute("src")?.includes("-real"), { timeout: 8000 });
-    assert.equal(await page.locator(".media-stack__note").count(), 0, "no 'image unavailable' message with a valid object");
-
-    await page.locator('.media-toggle--page button[data-view="styled"]').click();
-    await page.waitForFunction(() => !document.querySelector(".gallery__track .media-stack__img.is-on")?.getAttribute("src")?.includes("-real"), { timeout: 8000 });
-    assert.equal(await heroSrc(), styled, "and back again");
-    assert.equal(pageErrors.length, 0, `no page errors: ${pageErrors.join(" | ")}`);
-  } finally {
-    await context.close();
-  }
-}
 
 export async function zoom_still_opens_and_closes_at_the_new_size({ newPage, BASE }) {
   const { page, context } = await newPage({ width: 1366, height: 768 });
@@ -228,3 +207,20 @@ export async function zoom_still_opens_and_closes_at_the_new_size({ newPage, BAS
     await context.close();
   }
 }
+
+/*
+ * RETIRED WITH THE STYLED/REAL SWITCH
+ * ───────────────────────────────────
+ * The tests removed from this file asserted the behaviour of the binary
+ * customer-facing Styled Preview ⇄ Real Product control: that it was
+ * hit-testable, that its pressed state never disagreed with the displayed
+ * image, that a failed photograph did not leave it selected, and that hover
+ * prefetch still revealed the photograph on desktop.
+ *
+ * That control no longer exists — every product image is an ordinary
+ * carousel slide now — so those behaviours are not expressible. They are NOT
+ * silently dropped: the guarantees that survived the change (slide/state
+ * synchronisation, swipe handling, RTL, zoom, layout) are asserted in
+ * 25-gallery-sync.e2e.mjs and 26-navigation-media.e2e.mjs, and the absence of
+ * any remaining toggle is asserted there too.
+ */

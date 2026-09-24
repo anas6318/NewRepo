@@ -16,7 +16,8 @@ import { LOCALES, localeName, useI18n, type Locale } from "../../lib/i18n/index.
 import { swapLocale } from "../../lib/router-core.ts";
 import { useSession, useSettings } from "../../services/store.tsx";
 import { track } from "../../lib/analytics.ts";
-import { MOBILE_SHOP_NAV, UTILITY_NAV } from "../../content/navigation.ts";
+import { ALL_CLUBS_PATH, MOBILE_SHOP_NAV, UTILITY_NAV, clubNavItems } from "../../content/navigation.ts";
+import { useL } from "../ui/bits.tsx";
 import { LOGO, logoWidthFor } from "../../content/brand.ts";
 import { IconClose, IconHeart, IconInstagram, IconUser } from "../ui/Icons.tsx";
 
@@ -24,6 +25,7 @@ export const MOBILE_MENU_ID = "mobile-menu";
 
 export function MobileNavigation({ onClose }: { onClose: () => void }) {
   const { locale, t } = useI18n();
+  const lt = useL();
   const { customer } = useSession();
   const { settings } = useSettings();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -74,14 +76,26 @@ export function MobileNavigation({ onClose }: { onClose: () => void }) {
         </div>
 
         <nav className="drawer__body mobile-nav" aria-label={t("nav.menu")}>
-          <p className="mobile-nav__heading">{t("nav.shop")}</p>
+          <p className="mobile-nav__heading">{t("nav.football")}</p>
           {MOBILE_SHOP_NAV.map((item) => (
             <Link key={item.id} to={`${L}${item.path}`} className="mobile-nav__link">
               {t(item.labelKey)}
             </Link>
           ))}
 
-          <p className="mobile-nav__heading">{t("nav.customerCare")}</p>
+          <p className="mobile-nav__heading">{t("nav.shopByClub")}</p>
+          {clubNavItems().map((club) => (
+            <Link key={club.id} to={`${L}${club.path}`} className="mobile-nav__link" data-club={club.id}>
+              {lt(club.label)}
+            </Link>
+          ))}
+          <Link to={`${L}${ALL_CLUBS_PATH}`} className="mobile-nav__link">
+            {t("nav.allClubs")}
+          </Link>
+
+          {/* Customer Care sits below shopping and uses the quieter utility
+              link style — present and findable, never competing with it. */}
+          <p className="mobile-nav__heading mobile-nav__heading--secondary">{t("nav.customerCare")}</p>
           {UTILITY_NAV.map((item) => (
             <Link key={item.id} to={`${L}${item.path}`} className="mobile-nav__link mobile-nav__link--utility">
               {t(item.labelKey)}

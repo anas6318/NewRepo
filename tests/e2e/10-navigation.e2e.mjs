@@ -20,7 +20,7 @@ export async function shop_dropdown_click_open_escape_close_restores_focus({ pag
   await trigger.click();
   assert.equal(await trigger.getAttribute("aria-expanded"), "true", "aria-expanded reflects open state");
   assert.ok(await page.locator("#shop-menu").isVisible(), "panel opens on click");
-  assert.ok(await page.locator('#shop-menu a[href="/en/shop"]').isVisible(), "Shop All link present");
+  assert.ok(await page.locator('#shop-menu a[href="/en/shop"]:not(.nav-dropdown__link--all)').isVisible(), "Shop All link present");
   assert.ok(await page.locator('#shop-menu a[href="/en/category/player-version"]').isVisible(), "jersey links present");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(150);

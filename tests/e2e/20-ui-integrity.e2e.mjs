@@ -103,106 +103,9 @@ export async function the_footer_shows_exactly_one_copyright_line({ page, BASE }
 
 /* ── 3 · MOBILE styled ⇄ real switch, checked on the rendered image ─────── */
 
-/** The image URL actually being displayed, read from the DOM. */
-async function displayedSrc(page) {
-  return await page.evaluate(() => {
-    const stack = document.querySelector(".gallery__track .media-stack") ?? document.querySelector(".media-stack");
-    if (!stack) return null;
-    const on = stack.querySelector(".media-stack__img.is-on");
-    return on ? new URL(on.getAttribute("src"), window.location.origin).pathname : null;
-  });
-}
 
-export async function mobile_tap_switches_the_displayed_image_both_ways({ newPage, BASE }) {
-  const { page, context, pageErrors } = await newPage(PHONE, { hasTouch: true, isMobile: true });
-  try {
-    await page.goto(`${BASE}/ar/product/${DUAL}`, { waitUntil: "networkidle" });
-    await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
 
-    const styledSrc = await displayedSrc(page);
-    assert.ok(styledSrc, "an image is displayed to begin with");
-    assert.ok(!styledSrc.includes("-real"), `starts on the styled render — got ${styledSrc}`);
 
-    // Tap, not hover. tap() dispatches real touch events.
-    await page.locator('.media-toggle--page button[data-view="real"]').tap();
-    await page.waitForFunction(
-      () => document.querySelector(".media-stack__img.is-on")?.getAttribute("src")?.includes("-real"),
-      { timeout: 6000 },
-    );
-    const realSrc = await displayedSrc(page);
-    assert.ok(realSrc.includes("-real"), `the DISPLAYED image is now the photograph — got ${realSrc}`);
-    assert.notEqual(realSrc, styledSrc, "the displayed image genuinely changed");
-
-    await page.locator('.media-toggle--page button[data-view="styled"]').tap();
-    await page.waitForFunction(
-      () => !document.querySelector(".media-stack__img.is-on")?.getAttribute("src")?.includes("-real"),
-      { timeout: 6000 },
-    );
-    assert.equal(await displayedSrc(page), styledSrc, "tapping back restores the styled render");
-    assert.equal(pageErrors.length, 0, `no page errors: ${pageErrors.join(" | ")}`);
-  } finally {
-    await context.close();
-  }
-}
-
-export async function on_mobile_the_pressed_button_always_matches_the_visible_image({ newPage, BASE }) {
-  const { page, context } = await newPage(PHONE, { hasTouch: true, isMobile: true });
-  try {
-    await page.goto(`${BASE}/he/product/${DUAL}`, { waitUntil: "networkidle" });
-    await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
-
-    const agree = async (label) => {
-      const pressed = await page.evaluate(() => {
-        const btn = document.querySelector('.media-toggle--page button[aria-pressed="true"]');
-        return btn?.getAttribute("data-view") ?? null;
-      });
-      const src = await displayedSrc(page);
-      const showing = src?.includes("-real") ? "real" : "styled";
-      assert.equal(pressed, showing, `${label}: pressed=${pressed} but the image on screen is ${showing} (${src})`);
-    };
-
-    await agree("on load");
-    await page.locator('.media-toggle--page button[data-view="real"]').tap();
-    await page.waitForFunction(() => document.querySelector(".media-stack__img.is-on")?.getAttribute("src")?.includes("-real"), { timeout: 6000 });
-    await agree("after choosing Real Product");
-    await page.locator('.media-toggle--page button[data-view="styled"]').tap();
-    await page.waitForFunction(() => !document.querySelector(".media-stack__img.is-on")?.getAttribute("src")?.includes("-real"), { timeout: 6000 });
-    await agree("after choosing Styled Preview");
-  } finally {
-    await context.close();
-  }
-}
-
-export async function a_failing_real_photo_never_leaves_real_product_selected({ newPage, BASE }) {
-  const { page, context } = await newPage(PHONE, { hasTouch: true, isMobile: true });
-  try {
-    // Exactly the reported failure mode: the photograph cannot be fetched.
-    await page.route(/-real\.webp/, (r) => r.abort());
-    await page.goto(`${BASE}/en/product/${DUAL}`, { waitUntil: "networkidle" });
-    await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
-    const before = await displayedSrc(page);
-
-    await page.locator('.media-toggle--page button[data-view="real"]').tap();
-    await page.waitForTimeout(1200);
-
-    const pressed = await page.evaluate(() => document.querySelector('.media-toggle--page button[aria-pressed="true"]')?.getAttribute("data-view") ?? null);
-    assert.equal(pressed, "styled", "a failed photo must NOT leave Real Product pressed");
-    assert.equal(await displayedSrc(page), before, "the styled render is still what is shown");
-    const note = await page.locator(".media-stack__note").count();
-    assert.equal(note, 1, "the failure is stated rather than hidden");
-  } finally {
-    await context.close();
-  }
-}
-
-export async function desktop_hover_prefetch_still_works({ page, BASE }) {
-  await page.goto(`${BASE}/en/shop`, { waitUntil: "networkidle" });
-  const card = page.locator(".prod-card--dual").first();
-  await card.locator(".prod-card__frame").hover();
-  await page.waitForTimeout(900);
-  const src = await card.locator(".media-stack__img.is-on").getAttribute("src");
-  assert.ok(src?.includes("-real"), `hover still reveals the photograph on desktop — got ${src}`);
-}
 
 /* ── 4 · broken images fall back instead of breaking ────────────────────── */
 
@@ -238,9 +141,11 @@ export async function the_mobile_gallery_is_usable_and_does_not_overflow({ newPa
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       assert.ok(overflow <= 2, `${locale}: no horizontal overflow (${overflow}px)`);
 
-      const toggle = page.locator(".media-toggle--page").first();
-      const box = await toggle.boundingBox();
-      assert.ok(box && box.x >= -1 && box.x + box.width <= PHONE.width + 1, `${locale}: the switch is not clipped (${JSON.stringify(box)})`);
+      const dots = page.locator(".media-carousel__dots").first();
+      if (await dots.count()) {
+        const box = await dots.boundingBox();
+        assert.ok(box && box.x >= -1 && box.x + box.width <= PHONE.width + 1, `${locale}: the carousel indicators are not clipped (${JSON.stringify(box)})`);
+      }
 
       // Thumbnails reachable, and the stage still shows an image afterwards.
       const thumbs = page.locator(".gallery__thumb");
@@ -292,48 +197,20 @@ export async function the_sticky_buy_bar_is_not_blocked_by_the_whatsapp_button({
  * actually matters: at NO POINT may the pressed button and the visible image
  * disagree.
  */
-export async function on_a_slow_connection_the_button_never_lies_about_the_image({ newPage, BASE }) {
-  const { page, context } = await newPage(PHONE, { hasTouch: true, isMobile: true });
-  try {
-    let released;
-    const held = new Promise((r) => {
-      released = r;
-    });
-    await page.route(/-real\.webp/, async (route) => {
-      await held;
-      await route.continue();
-    });
 
-    await page.goto(`${BASE}/en/product/${DUAL}`, { waitUntil: "networkidle" });
-    await page.waitForSelector(".media-toggle--page", { timeout: 6000 });
-    const styledSrc = await displayedSrc(page);
-
-    await page.locator('.media-toggle--page button[data-view="real"]').tap();
-
-    // While the photograph is still in flight: styled is on screen, so styled
-    // must be the pressed option — and the wait must be visible.
-    for (let i = 0; i < 6; i++) {
-      await page.waitForTimeout(120);
-      const state = await page.evaluate(() => ({
-        pressed: document.querySelector('.media-toggle--page button[aria-pressed="true"]')?.getAttribute("data-view") ?? null,
-        src: document.querySelector(".media-stack__img.is-on")?.getAttribute("src") ?? null,
-      }));
-      const showing = state.src?.includes("-real") ? "real" : "styled";
-      assert.equal(state.pressed, showing, `mid-load tick ${i}: pressed=${state.pressed} while showing ${showing}`);
-    }
-    const busy = await page.locator('.media-toggle--page button[aria-busy="true"]').count();
-    assert.equal(busy, 1, "the wait is shown as a busy state on the button the customer tapped");
-    assert.equal(await displayedSrc(page), styledSrc, "nothing blanked out while waiting");
-
-    // Now let it through: the switch completes.
-    released();
-    await page.waitForFunction(
-      () => document.querySelector(".media-stack__img.is-on")?.getAttribute("src")?.includes("-real"),
-      { timeout: 8000 },
-    );
-    const pressed = await page.evaluate(() => document.querySelector('.media-toggle--page button[aria-pressed="true"]')?.getAttribute("data-view"));
-    assert.equal(pressed, "real", "once the photograph is on screen, Real Product is pressed");
-  } finally {
-    await context.close();
-  }
-}
+/*
+ * RETIRED WITH THE STYLED/REAL SWITCH
+ * ───────────────────────────────────
+ * The tests removed from this file asserted the behaviour of the binary
+ * customer-facing Styled Preview ⇄ Real Product control: that it was
+ * hit-testable, that its pressed state never disagreed with the displayed
+ * image, that a failed photograph did not leave it selected, and that hover
+ * prefetch still revealed the photograph on desktop.
+ *
+ * That control no longer exists — every product image is an ordinary
+ * carousel slide now — so those behaviours are not expressible. They are NOT
+ * silently dropped: the guarantees that survived the change (slide/state
+ * synchronisation, swipe handling, RTL, zoom, layout) are asserted in
+ * 25-gallery-sync.e2e.mjs and 26-navigation-media.e2e.mjs, and the absence of
+ * any remaining toggle is asserted there too.
+ */

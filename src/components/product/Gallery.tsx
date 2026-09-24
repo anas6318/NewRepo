@@ -1,23 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "../../lib/i18n/index.tsx";
 import type { Product, ProductImage } from "../../services/types.ts";
-import { imageForView, productMedia } from "../../lib/media.ts";
+import { customerSlides, leadsWithStyledImage } from "../../lib/media.ts";
 import { useL } from "../ui/bits.tsx";
-import { MediaFrame, MediaLabel, MediaToggle, useMediaView } from "./MediaSwitch.tsx";
 import { SafeImage } from "../ui/SafeImage.tsx";
+import { IconChevronDown } from "../ui/Icons.tsx";
 
-type Slide = { kind: "hero" } | { kind: "image"; img: ProductImage };
+/** Every product image is now an ordinary slide — there is no special
+ * "hero" that hides a second image behind a switch. */
+type Slide = { img: ProductImage };
 
 /**
  * Product gallery: thumbnails, mobile swipe (scroll-snap), tap/click zoom.
  *
- * When the owner has tagged a styled preview and/or a real photograph, the
- * FIRST slide becomes the switchable hero and those two images drop out of
- * the ordinary slide list — the photograph is referenced by the switch
- * instead of being duplicated as its own slide. Everything else (back,
- * close-ups, badge and personalization shots) keeps working exactly as it
- * did, and a product with no tagged images renders the untouched old
- * gallery.
+ * Every image is a slide, in customer order: the styled preview, then the
+ * real front, then the real back and any other extras. The roles are still
+ * recorded on the images and still drive the Admin editor — they no longer
+ * drive a customer-facing mode switch, which made people decode an internal
+ * distinction before they could see the shirt.
+ *
+ * The track and the `active` state are kept in step by `goToSlide` and the
+ * scroll listener below. That synchronisation is load-bearing: without it a
+ * thumbnail can claim one slide while another is on screen.
  */
 export function Gallery({ product }: { product: Product }) {
   const { t } = useI18n();
@@ -28,23 +32,16 @@ export function Gallery({ product }: { product: Product }) {
   /** Ignores scroll events while a programmatic scroll is still animating, so
    * the slides it passes over on the way do not each become "active". */
   const settling = useRef(0);
-  const media = productMedia(product);
-  const { view, pending, realStatus, choose, prefetchReal } = useMediaView(media, product.slug);
-  const hasHero = media.views.length > 0;
+  const ordered = customerSlides(product);
+  const images: ProductImage[] = ordered.length ? ordered : [{ src: "", alt: product.name }];
+  const slides: Slide[] = images.map((img) => ({ img }));
+  /** A quiet disclosure, not a control: when the first image is a styled
+   * presentation render the customer is simply told so. */
+  const showStyledNote = leadsWithStyledImage(product);
 
-  const fallback: ProductImage[] = product.images.length ? product.images : [{ src: "", alt: product.name }];
-  const slides: Slide[] = hasHero
-    ? [{ kind: "hero" }, ...media.extras.map((img) => ({ kind: "image" as const, img }))]
-    : fallback.map((img) => ({ kind: "image" as const, img }));
-
-  const imageOf = (slide: Slide | undefined): ProductImage | undefined =>
-    slide?.kind === "hero" ? imageForView(media, view) : slide?.img;
+  const imageOf = (slide: Slide | undefined): ProductImage | undefined => slide?.img;
   const activeIndex = Math.min(active, slides.length - 1);
   const current = imageOf(slides[activeIndex]);
-  /** The switch and its caption describe the HERO. They must not be on screen
-   * while a different gallery image is, or toggling them appears to do
-   * nothing — the hero changes out of sight. */
-  const heroVisible = hasHero && activeIndex === 0;
 
   /**
    * The one way the gallery changes slide.
@@ -143,9 +140,7 @@ export function Gallery({ product }: { product: Product }) {
               setZoom(true);
             }}
           >
-            {slide.kind === "hero" ? (
-              <MediaFrame media={media} view={view} realStatus={realStatus} eager width={720} height={900} />
-            ) : slide.img.src ? (
+            {slide.img.src ? (
               <SafeImage
                 src={slide.img.src}
                 alt={L(slide.img.alt)}
@@ -160,18 +155,50 @@ export function Gallery({ product }: { product: Product }) {
           </button>
         ))}
       </div>
-        {/* At the bottom edge of the image container — the customer meets it
-            before the price, the sizes, the badges and add-to-cart, and it
-            stays on screen with the image on every viewport. */}
-        {heroVisible && (
-          <div className="gallery__media-ui">
-            <MediaLabel media={media} variant="page" />
-            <MediaToggle media={media} view={view} pending={pending} realStatus={realStatus} onSelect={choose} onPrefetch={prefetchReal} variant="page" />
-          </div>
+
+        {/* Previous / Next. They do nothing of their own — both call the same
+            `goToSlide` the thumbnails and the scroll listener use, so the
+            image, the active thumbnail and the zoom target cannot drift apart.
+            `activeIndex - 1` / `+ 1` is a SEQUENCE step, not a direction: in
+            RTL the buttons swap sides via logical properties and the chevrons
+            flip in CSS, while "next" still means the next image. No looping —
+            each end simply disables. */}
+        {slides.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="gallery__arrow gallery__arrow--prev"
+              aria-label={t("product.previousImage")}
+              data-arrow="prev"
+              disabled={activeIndex === 0}
+              onClick={(e) => {
+                // The slide beneath is a button that opens zoom.
+                e.preventDefault();
+                e.stopPropagation();
+                goToSlide(activeIndex - 1);
+              }}
+            >
+              <IconChevronDown size={16} />
+            </button>
+            <button
+              type="button"
+              className="gallery__arrow gallery__arrow--next"
+              aria-label={t("product.nextImage")}
+              data-arrow="next"
+              disabled={activeIndex === slides.length - 1}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                goToSlide(activeIndex + 1);
+              }}
+            >
+              <IconChevronDown size={16} />
+            </button>
+          </>
         )}
       </div>
 
-      {heroVisible && <p className="gallery__media-note">{t(view === "real" ? "media.realNote" : "media.styledNote")}</p>}
+      {showStyledNote && <p className="gallery__media-note">{t("product.styledLeadNote")}</p>}
 
       {slides.length > 1 && (
         <div className="gallery__thumbs" role="tablist" aria-label={t("product.galleryThumbs")}>

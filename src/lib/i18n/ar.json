@@ -32,7 +32,12 @@
     "more": "المزيد",
     "customerCare": "خدمة العملاء",
     "openMenu": "فتح القائمة",
-    "shopMenu": "قائمة المتجر"
+    "shopMenu": "قائمة المتجر",
+    "football": "كرة القدم",
+    "shopByClub": "تسوّق حسب النادي",
+    "allClubs": "كل الأندية والمنتخبات",
+    "delivery": "التوصيل",
+    "faq": "المساعدة والأسئلة الشائعة"
   },
   "home": {
     "heroTitle": "أيقونات اللعبة. باختيار CROWNED.",
@@ -155,7 +160,13 @@
     "versionRetro": "ريترو",
     "badge": "الشارة",
     "badgeNone": "بدون شارة",
-    "badgeIncluded": "مشمولة"
+    "badgeIncluded": "مشمولة",
+    "personalizationTitle": "اسمك. رقمك.",
+    "carouselLabel": "صور المنتج",
+    "previousImage": "الصورة السابقة",
+    "nextImage": "الصورة التالية",
+    "goToImage": "الانتقال إلى الصورة {n}",
+    "styledLeadNote": "الصورة الأولى صورة تقديمية منسّقة. الصور التالية تُظهر المنتج الفعلي."
   },
   "media": {
     "toggleLabel": "طريقة عرض صورة المنتج",

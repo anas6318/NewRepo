@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { imageUrlProblem as clientImageUrlProblem } from "../../src/lib/media.ts";
 import { imageUrlProblem as sharedImageUrlProblem, productImageUrlProblems } from "../../supabase/functions/_shared/image-url.ts";
 import {
@@ -238,31 +238,53 @@ test("the held-payment explanation exists in all three languages", () => {
   }
 });
 
-/* ── 3 & 4 · media hook guarantees, at the source ───────────────────────── */
+/* ── 3 & 4 · media guarantees, at the source ────────────────────────────────
+ *
+ * RETIRED: four assertions here covered `useMediaView` in MediaSwitch.tsx —
+ * the intent token that stopped a stale hover revealing the photograph, the
+ * forced retry after a failed load, the absence of a cache-busting query
+ * string, and the shared in-flight promise. That component implemented the
+ * customer-facing Styled/Real switch, which has been removed: every image is
+ * now an ordinary carousel slide, nothing is loaded speculatively and nothing
+ * is revealed conditionally, so those four bugs are not expressible.
+ *
+ * What DID carry over is the scroll/state synchronisation, which is the same
+ * class of bug in a new place — so it is asserted here against the carousel.
+ */
 
-const HOOK = readFileSync("src/components/product/MediaSwitch.tsx", "utf8");
+const CAROUSEL = readFileSync("src/components/product/MediaCarousel.tsx", "utf8");
 
-test("every async reveal is gated on the intent that started it", () => {
-  assert.ok(/const intent = useRef\(0\)/.test(HOOK), "an intent token exists");
-  // Both async completions must compare it.
-  const reveals = HOOK.match(/intent\.current !== token/g) ?? [];
-  assert.ok(reveals.length >= 2, `choose() and preview() both check the token (found ${reveals.length})`);
-  assert.ok(/const token = \+\+intent\.current;[\s\S]{0,400}?setView\(next\);/.test(HOOK), "leaving hover bumps the token, invalidating an in-flight reveal");
+test("the carousel moves the track with a measured delta, not a signed scrollLeft", () => {
+  assert.ok(/getBoundingClientRect\(\)\.left - track\.getBoundingClientRect\(\)\.left/.test(CAROUSEL), "the distance is measured from rendered boxes");
+  assert.ok(/scrollBy\(\{ left: delta/.test(CAROUSEL), "and applied relatively, which is correct in RTL and LTR");
+  assert.ok(!/scrollLeft\s*=/.test(CAROUSEL), "never assigns scrollLeft, whose sign differs between engines in RTL");
 });
 
-test("a deliberate tap can retry after a failure; passive callers cannot", () => {
-  assert.ok(/statusRef\.current === "error" && !force/.test(HOOK), "an error only short-circuits passive callers");
-  assert.ok(/loadReal\(true\)/.test(HOOK), "choose() forces a fresh attempt");
-  const prefetch = HOOK.slice(HOOK.indexOf("const prefetchReal"), HOOK.indexOf("const choose"));
-  assert.ok(!/loadReal\(true\)/.test(prefetch), "hover/touch warm-up never forces — a broken URL is not re-requested on every pointer move");
+test("a swipe updates the active slide, coalesced to one measurement per frame", () => {
+  assert.ok(/addEventListener\("scroll"/.test(CAROUSEL), "the track's own scroll drives state");
+  assert.ok(/requestAnimationFrame\(sync\)/.test(CAROUSEL), "coalesced — a swipe fires scroll far faster than React needs");
+  assert.ok(/Date\.now\(\) < settling\.current/.test(CAROUSEL), "our own animated scroll does not mark every slide it passes as active");
 });
 
-test("the preload verifies the exact URL the frame will render", () => {
-  assert.ok(!/retry=\$\{Date\.now\(\)\}/.test(HOOK), "no cache-busting query string: it would validate a different resource");
+test("a drag is distinguished from a tap, so a swipe cannot navigate", () => {
+  assert.ok(/DRAG_THRESHOLD_PX/.test(CAROUSEL), "a movement threshold exists");
+  assert.ok(/onDragState\?\.\(true\)/.test(CAROUSEL), "and it is reported to the card");
+  // The tap target is the carousel itself, not a link layered over it: a
+  // link covering the scroller swallows the touch and the track could never
+  // be swiped on a phone. So the drag guard lives where the click does.
+  assert.ok(/if \(dragged\.current \|\| !onActivate\) return;/.test(CAROUSEL), "a drag never reaches onActivate");
+  const card = readFileSync("src/components/product/ProductCard.tsx", "utf8");
+  assert.ok(/onActivate=\{\(\) => \{/.test(card), "the card opens the product from that callback");
+  assert.ok(!/prod-card__cover/.test(card), "and no invisible link sits on top of the carousel");
 });
 
-test("concurrent callers share one in-flight request", () => {
-  assert.ok(/inFlight\.current \?\? Promise\.resolve\(false\)/.test(HOOK));
+test("no customer-facing Styled/Real switch survives anywhere in the app", () => {
+  const files = ["src/components/product/ProductCard.tsx", "src/components/product/Gallery.tsx", "src/components/product/MediaCarousel.tsx"];
+  for (const file of files) {
+    const src = readFileSync(file, "utf8");
+    assert.ok(!/MediaToggle|MediaFrame|useMediaView/.test(src), `${file} no longer renders the switch`);
+  }
+  assert.equal(existsSync("src/components/product/MediaSwitch.tsx"), false, "the switch component itself is gone");
 });
 
 /* ── 5 · the fallback keeps the image's own layout box ──────────────────── */

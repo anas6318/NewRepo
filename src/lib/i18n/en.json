@@ -32,7 +32,12 @@
     "more": "More",
     "customerCare": "Customer Care",
     "openMenu": "Open menu",
-    "shopMenu": "Shop menu"
+    "shopMenu": "Shop menu",
+    "football": "Football",
+    "shopByClub": "Shop by Club",
+    "allClubs": "All Clubs & Teams",
+    "delivery": "Delivery",
+    "faq": "Help & FAQ"
   },
   "home": {
     "heroTitle": "Icons of the game. Selected by CROWNED.",
@@ -155,7 +160,13 @@
     "versionRetro": "Retro",
     "badge": "Badge / patch",
     "badgeNone": "No badge",
-    "badgeIncluded": "included"
+    "badgeIncluded": "included",
+    "personalizationTitle": "Your name. Your number.",
+    "carouselLabel": "Product images",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "goToImage": "Go to image {n}",
+    "styledLeadNote": "The first image is a styled presentation image. The photographs that follow show the actual product."
   },
   "media": {
     "toggleLabel": "Product image view",

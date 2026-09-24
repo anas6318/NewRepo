@@ -153,3 +153,26 @@ export function productImageIssues(images: readonly ProductImage[]): string[] {
   });
   return issues;
 }
+
+/* ── Customer-facing slide order ────────────────────────────────────────────
+ *
+ * ONE list, in the order a customer should meet the product:
+ *
+ *   1. the styled preview   2. the real front   3. the real back / extras
+ *
+ * The roles are still recorded on each image and still drive the Admin
+ * editor — they simply no longer drive a customer-facing MODE SWITCH. The
+ * binary Styled/Real toggle asked shoppers to understand an internal
+ * distinction before they could see the product; a plain carousel shows them
+ * everything in a sensible order instead.
+ */
+export function customerSlides(product: Pick<Product, "images">): ProductImage[] {
+  const images = Array.isArray(product.images) ? product.images.filter((i) => i && typeof i.src === "string" && i.src !== "") : [];
+  return orderImages([...images]);
+}
+
+/** True when the first slide is an AI-styled/enhanced presentation image, so
+ * the page can disclose that quietly rather than through a control. */
+export function leadsWithStyledImage(product: Pick<Product, "images">): boolean {
+  return customerSlides(product)[0]?.role === "styled";
+}

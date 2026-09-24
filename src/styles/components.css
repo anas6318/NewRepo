@@ -527,6 +527,21 @@
   line-height: 1.35;
 }
 
+/*
+ * The title link stretches over the CARD TEXT, not the whole card.
+ *
+ * `inset: 0` against `.prod-card` used to put an invisible link across the
+ * image too. That is fine for a static picture and fatal for a carousel: the
+ * link swallows the touch, so the track can never be swiped on a phone, and
+ * a pointer drag lands on a link instead of the scroller. Anchoring the
+ * pseudo-element to `.prod-card__meta` keeps the whole text block clickable
+ * while leaving the media area to the carousel, which opens the product
+ * itself on a deliberate tap (see MediaCarousel's `onActivate`).
+ */
+.prod-card__meta {
+  position: relative;
+}
+
 .prod-card__title a::after {
   content: "";
   position: absolute;
@@ -1276,9 +1291,9 @@
   }
 }
 
-/* The card's existing hover zoom is suppressed where hover also switches the
-   image — a swap and a scale at the same time reads as a glitch. */
-.prod-card--dual:hover .prod-card__frame img {
+/* No hover zoom on a carousel card: the image is a scroller now, and a scale
+   transform on a snapping track fights the gesture. */
+.prod-card--carousel:hover .prod-card__frame img {
   transform: none;
 }
 
@@ -1479,4 +1494,146 @@
   .media-stack__spinner {
     animation-duration: 2.4s;
   }
+}
+
+/* ── Product media carousel ─────────────────────────────────────────────────
+   Replaces the Styled/Real switch. Native scroll-snap does the swiping, so
+   touch, trackpad and momentum all behave the way the platform intends; the
+   chevrons and dots are conveniences layered on top, never the only path. */
+.media-carousel {
+  position: absolute;
+  inset: 0;
+}
+
+.media-carousel--page {
+  position: relative;
+  inset: auto;
+  block-size: 100%;
+}
+
+.media-carousel__track {
+  display: flex;
+  block-size: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* The images are draggable-looking; make the gesture feel deliberate. */
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+}
+
+.media-carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
+.media-carousel__slide {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  block-size: 100%;
+}
+
+.media-carousel__slide img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Understated chevrons: hidden until the card is hovered or something inside
+   it takes focus, and never large enough to sit on top of the shirt. */
+.media-carousel__nav {
+  position: absolute;
+  inset-block-start: 50%;
+  translate: 0 -50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  inline-size: 26px;
+  block-size: 26px;
+  border-radius: 50%;
+  background: rgba(11, 11, 13, 0.55);
+  color: var(--paper, #f6f4ef);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease);
+}
+
+.media-carousel__nav--prev {
+  inset-inline-start: 6px;
+  rotate: 90deg;
+}
+
+.media-carousel__nav--next {
+  inset-inline-end: 6px;
+  rotate: -90deg;
+}
+
+.media-carousel__nav[disabled] {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+.prod-card:hover .media-carousel__nav,
+.prod-card:focus-within .media-carousel__nav,
+.media-carousel--page:hover .media-carousel__nav,
+.media-carousel--page:focus-within .media-carousel__nav {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  /* Touch devices swipe; chevrons would only take up room. */
+  .media-carousel__nav {
+    display: none;
+  }
+}
+
+.media-carousel__dots {
+  position: absolute;
+  inset-block-end: 8px;
+  inset-inline: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.media-carousel__dots > * {
+  pointer-events: auto;
+}
+
+.media-carousel__dot {
+  inline-size: 5px;
+  block-size: 5px;
+  border-radius: 50%;
+  background: rgba(246, 244, 239, 0.4);
+  box-shadow: 0 0 0 1px rgba(11, 11, 13, 0.25);
+  transition: background var(--t-fast) var(--ease);
+}
+
+.media-carousel__dot.is-on {
+  background: var(--gold-500, #c6a355);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-carousel__nav {
+    transition: none;
+  }
+}
+
+/* Shop-by-Club sits apart from the product-type columns in the menu. */
+.nav-dropdown__group--clubs {
+  border-inline-start: 1px solid rgba(246, 244, 239, 0.1);
+  padding-inline-start: var(--sp-5);
+}
+
+.nav-dropdown__link--all {
+  color: var(--gold-400, #d4b877);
+}
+
+/* Customer Care reads as secondary to shopping in the mobile menu. */
+.mobile-nav__heading--secondary {
+  opacity: 0.66;
+  font-size: var(--fs-xs);
 }

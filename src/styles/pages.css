@@ -1127,7 +1127,7 @@
      * unusually short window, where without it a 700px-tall hero would push
      * the Styled/Real controls back off the screen.
      */
-    inline-size: min(100%, min(clamp(500px, 40vw, 560px), calc((100dvh - var(--header-h) - var(--sp-4)) * 0.8)));
+    max-inline-size: min(clamp(500px, 40vw, 560px), calc((100dvh - var(--header-h) - var(--sp-4)) * 0.8));
     margin-inline: auto;
   }
 }
@@ -1527,4 +1527,94 @@
 .media-admin__row .input {
   flex: 1 1 240px;
   min-inline-size: 0;
+}
+
+/* ── Product gallery: previous / next ───────────────────────────────────────
+   Restrained by design — a small dark disc with a thin chevron, sitting just
+   inside the image edge. Always present (a control you have to discover by
+   hovering is not a control), but quiet enough that the shirt stays the
+   subject. They sit above the slide, which is itself a button that opens
+   zoom. */
+.gallery__arrow {
+  position: absolute;
+  inset-block-start: 50%;
+  translate: 0 -50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 50%;
+  background: rgba(11, 11, 13, 0.46);
+  color: var(--paper, #f6f4ef);
+  box-shadow: inset 0 0 0 1px rgba(246, 244, 239, 0.14);
+  backdrop-filter: blur(8px);
+  opacity: 0.78;
+  transition:
+    opacity var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.gallery__arrow:hover,
+.gallery__arrow:focus-visible {
+  opacity: 1;
+  background: rgba(11, 11, 13, 0.66);
+}
+
+/* Logical insets: in RTL "previous" moves to the right-hand edge on its own. */
+.gallery__arrow--prev {
+  inset-inline-start: var(--sp-3);
+}
+
+.gallery__arrow--next {
+  inset-inline-end: var(--sp-3);
+}
+
+/* The chevron points along the READING direction. The button's ACTION is a
+   sequence step either way — only the glyph is mirrored here. */
+.gallery__arrow--prev svg {
+  rotate: 90deg;
+}
+
+.gallery__arrow--next svg {
+  rotate: -90deg;
+}
+
+[dir="rtl"] .gallery__arrow--prev svg {
+  rotate: -90deg;
+}
+
+[dir="rtl"] .gallery__arrow--next svg {
+  rotate: 90deg;
+}
+
+/* At the ends there is nowhere to go: fade out and stop taking clicks, rather
+   than offering an action that does nothing. No looping. */
+.gallery__arrow[disabled] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Smaller on a phone, where the swipe is the primary gesture — still a
+   comfortable target, just less of the picture covered. */
+@media (max-width: 720px) {
+  .gallery__arrow {
+    inline-size: 34px;
+    block-size: 34px;
+    opacity: 0.66;
+  }
+
+  .gallery__arrow--prev {
+    inset-inline-start: var(--sp-2);
+  }
+
+  .gallery__arrow--next {
+    inset-inline-end: var(--sp-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery__arrow {
+    transition: none;
+  }
 }

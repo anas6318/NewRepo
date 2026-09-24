@@ -405,7 +405,7 @@ export function ProductPage({ slug }: { slug: string }) {
           {product.personalizable && (
             <fieldset className="field">
               <legend className="field__label">
-                {t("home.personalizationTitle")} <span className="badge badge--gold">{t("product.freeLabel")}</span>
+                {t("product.personalizationTitle")} <span className="badge badge--gold">{t("product.freeLabel")}</span>
               </legend>
               <div className="form-grid">
                 <Field id="p-name" label={t("product.customName")} hint={t("product.customNamePlaceholder")}>
