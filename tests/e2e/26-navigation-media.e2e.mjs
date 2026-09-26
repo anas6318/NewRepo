@@ -66,20 +66,35 @@ export async function every_navigation_route_renders_a_real_page({ newPage, BASE
 export async function shop_by_club_links_run_a_real_catalog_search({ newPage, BASE }) {
   const { page, context } = await newPage(DESKTOP);
   try {
-    await page.goto(`${BASE}/en`, { waitUntil: "networkidle" });
-    await page.locator(".nav-dropdown__trigger, [aria-controls='shop-menu']").first().click();
-    await page.waitForSelector("#shop-menu:not([hidden])", { timeout: 5000 });
+    // One LTR and one RTL locale: the club page must show the localized club
+    // name (the link's own label) and never the raw tag behind ?club=.
+    for (const locale of ["en", "he"]) {
+      await page.goto(`${BASE}/${locale}`, { waitUntil: "networkidle" });
+      await page.locator(".nav-dropdown__trigger, [aria-controls='shop-menu']").first().click();
+      await page.waitForSelector("#shop-menu:not([hidden])", { timeout: 5000 });
 
-    const clubs = await page.evaluate(() =>
-      [...document.querySelectorAll("#shop-menu a[data-club]")].map((a) => ({ id: a.getAttribute("data-club"), href: a.getAttribute("href") })),
-    );
-    assert.ok(clubs.length >= 3, `Shop by Club has entries (${clubs.length})`);
-    for (const club of clubs) {
-      assert.ok(club.href.includes("/shop?q="), `${club.id} is a catalog search: ${club.href}`);
-      await page.goto(`${BASE}${club.href}`, { waitUntil: "networkidle" });
-      const text = (await page.locator("main").innerText()).trim();
-      assert.ok(!text.includes("404"), `${club.id}: a real page, not a 404`);
-      assert.ok(text.length > 20, `${club.id}: renders content (results or a clear empty state)`);
+      const clubs = await page.evaluate(() =>
+        [...document.querySelectorAll("#shop-menu a[data-club]")].map((a) => ({
+          id: a.getAttribute("data-club"),
+          href: a.getAttribute("href"),
+          label: a.textContent.trim(),
+        })),
+      );
+      assert.ok(clubs.length >= 3, `${locale}: Shop by Club has entries (${clubs.length})`);
+      for (const club of clubs) {
+        assert.ok(club.href.includes("/shop?club="), `${locale} ${club.id} is a club filter: ${club.href}`);
+        const tag = decodeURIComponent(new URL(club.href, BASE).searchParams.get("club") ?? "");
+        assert.ok(tag, `${locale} ${club.id}: href carries a club tag`);
+        assert.ok(club.label, `${locale} ${club.id}: link has a visible label`);
+        await page.goto(`${BASE}${club.href}`, { waitUntil: "networkidle" });
+        const text = (await page.locator("main").innerText()).trim();
+        assert.ok(!text.includes("404"), `${locale} ${club.id}: a real page, not a 404`);
+        assert.ok(text.length > 20, `${locale} ${club.id}: renders content (results or a clear empty state)`);
+        assert.ok(await page.locator("main h1").getByText(club.label, { exact: true }).isVisible(), `${locale} ${club.id}: localized club label "${club.label}" visible in main`);
+        if (tag !== club.label) {
+          assert.ok(!text.includes(tag), `${locale} ${club.id}: raw tag "${tag}" must not be shown`);
+        }
+      }
     }
   } finally {
     await context.close();
