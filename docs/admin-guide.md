@@ -28,7 +28,14 @@ function, and by a DB constraint (spec §30).
 **Supplier import** — upload/paste CSV or JSON (`docs/
 supplier-import-template.csv`), preview, then import. Every row lands as
 **draft + rights pending_review**; duplicates and invalid rows are reported
-per-row and skipped. Nothing auto-publishes.
+per-row and skipped. Nothing auto-publishes. The optional `club` column takes
+one Shop by Club tag (`barcelona`, `real-madrid`, `ac-milan`, `manunited`,
+`liverpool`, `inter-milan`, `atc-madrid`, `mancity`; any case) and becomes
+the product's club tag; blank means no club, and an unknown value fails the
+row (`unknown club "…"`). In the product editor the **Club** select sets the
+same tag — it replaces only the club tag, never the product's other tags. A
+product carries at most one club: saving one tagged with two different clubs
+is refused (`multiple_clubs`).
 
 **Orders** — search/filter by payment/fulfillment, CSV export, detail view:
 items with personalization exactly as entered, payment status (bank

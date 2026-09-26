@@ -108,3 +108,41 @@ export async function sheets_resync_reports_honestly_in_demo({ page, BASE }) {
   const toast = await page.locator(".toast").textContent();
   assert.ok(toast?.toLowerCase().includes("no external sync"), `demo resync is honest: ${toast}`);
 }
+
+export async function admin_club_select_puts_product_on_club_shop_page({ page, BASE }) {
+  // Fresh context → fresh demo DB: import a club-less draft, then give it a
+  // club in the product editor and publish it through the rights gate.
+  await adminLogin(page, BASE);
+  await page.goto(`${BASE}/admin/imports`, { waitUntil: "networkidle" });
+  await page.fill("textarea", "slug,name_en,category,price_ils,club\ne2e-club-shirt,E2E Club Shirt,retro,170,\ne2e-club-bad,E2E Club Bad,retro,170,chelsea");
+  await page.getByRole("button", { name: "Preview" }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole("button", { name: /Import .* drafts/ }).click();
+  await page.waitForTimeout(500);
+  const results = await page.locator(".stack--sm").last().textContent();
+  assert.ok(results?.includes('created draft "e2e-club-shirt"'), "club-less row imported");
+  assert.ok(results?.includes('unknown club "chelsea"'), `unknown club row rejected by name: ${results}`);
+
+  await page.goto(`${BASE}/admin/products`, { waitUntil: "networkidle" });
+  await page.waitForSelector("tbody tr");
+  await page.locator("tbody tr", { hasText: "e2e-club-shirt" }).first().getByRole("link", { name: "Edit" }).click();
+  const club = page.locator("label", { has: page.locator("span", { hasText: /^Club$/ }) }).locator("select");
+  await club.waitFor();
+  assert.equal(await club.inputValue(), "", "imported without a club → No club preselected");
+  // Visible option text is readable club names, never raw tags.
+  const labels = (await club.locator("option").allTextContents()).map((t) => t.trim());
+  assert.deepEqual(labels, ["No club", "Barcelona", "Real Madrid", "AC Milan", "Manchester United", "Liverpool", "Inter Milan", "Atlético Madrid", "Manchester City"]);
+  await club.selectOption({ label: "AC Milan" });
+  assert.equal(await club.inputValue(), "ac-milan");
+  await page.locator("label", { has: page.locator("span", { hasText: /^Status$/ }) }).locator("select").selectOption("made_to_order");
+  await page.locator("label", { has: page.locator("span", { hasText: /^Rights status$/ }) }).locator("select").selectOption("cleared");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.waitForURL(/\/admin\/products$/, { timeout: 6000 });
+
+  await page.goto(`${BASE}/en/shop?club=ac-milan`, { waitUntil: "networkidle" });
+  await page.waitForSelector(".prod-card");
+  assert.ok(await page.locator(".prod-card", { hasText: "E2E Club Shirt" }).count(), "product listed under its club");
+  await page.goto(`${BASE}/en/shop?club=inter-milan`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(500);
+  assert.equal(await page.locator(".prod-card", { hasText: "E2E Club Shirt" }).count(), 0, "not listed under another club");
+}

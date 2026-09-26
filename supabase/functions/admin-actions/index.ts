@@ -11,6 +11,7 @@
  */
 import { audit, dbInsert, dbSelect, dbUpdate, dbUpsert, db, handleError, HttpError, json, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
 import { productImageUrlProblems } from "../_shared/image-url.ts";
+import { normalizeProductTags, parseImportedClub } from "../_shared/clubs.ts";
 import {
   DASHBOARD_AWAITING_SUPPLIER,
   DASHBOARD_DISPATCHED,
@@ -247,6 +248,14 @@ async function saveProduct(req: Request, product: Record<string, unknown>): Prom
     throw new HttpError(400, "product_invalid_image_url", badImages.map((b) => `${b.where}: ${b.problem}`).join("; "));
   }
 
+  // Club tags are normalized HERE too: a product carries at most one
+  // registry club tag, stored in its canonical lowercase form so the
+  // storefront `?club=` filter finds it. Every other tag is kept exactly
+  // (value, case, order). Two different clubs is refused, never guessed.
+  const tagCheck = normalizeProductTags(product.tags);
+  if (tagCheck.error) throw new HttpError(400, tagCheck.error);
+  product.tags = tagCheck.tags;
+
   const row = {
     id: String(product.id),
     slug: String(product.slug),
@@ -289,6 +298,10 @@ async function importProducts(req: Request, body: { rows: Record<string, string>
     if (known.has(slug)) errors.push("duplicate slug — skipped");
     const badgeImport = parseImportedBadges(row, badgeByCode);
     errors.push(...badgeImport.errors);
+    // Optional `club` column: a registry tag (any case) or blank. Unknown
+    // supplier text fails the row; it never becomes a tag.
+    const clubImport = parseImportedClub(row);
+    errors.push(...clubImport.errors);
     if (errors.length) {
       results.push({ row: i + 1, ok: false, slug, errors });
       continue;
@@ -318,7 +331,7 @@ async function importProducts(req: Request, body: { rows: Record<string, string>
       featured: false,
       images: [],
       relatedSlugs: [],
-      tags: [],
+      tags: clubImport.tags,
       rightsStatus: "pending_review",
       supplier: { sku: row.supplier_sku?.trim(), reference: row.supplier_ref?.trim(), costUsd: Number(row.supplier_cost_usd) || undefined },
       isDemo: false,

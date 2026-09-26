@@ -1,15 +1,15 @@
 /**
- * Club registry — the single source of truth for football clubs.
+ * Club registry — the SERVER's copy.
  *
- * Clubs are NOT a separate data model: a product belongs to a club when its
- * `tags` contain that club's canonical tag. Matching is case-insensitive and
- * whole-tag only (never a substring, so `ac-milan` cannot match
- * `inter-milan`), and tolerates products whose `tags` are missing.
+ * Edge functions cannot import from `src/`, so this mirrors
+ * `src/lib/clubs.ts` exactly (the same pattern as `image-url.ts` mirroring
+ * `src/lib/media.ts`). Parity is pinned by tests/unit/club-tags.test.ts,
+ * which runs BOTH implementations over the same table of inputs — so the two
+ * copies cannot drift without a test failing.
  *
- * Pure module: no React, no imports from src/services, so it can be mirrored
- * verbatim for a Deno edge function later. Used by the storefront (Shop by
- * Club menu, /shop?club=, catalog filter) and by admin/import club
- * assignment.
+ * Used by admin-actions `save-product` (normalizeProductTags) and
+ * `import-products` (parseImportedClub). Runtime: pure, no Deno access, so
+ * tests exercise this exact module under Node. Keep it that way.
  */
 
 /** Same shape as LocalizedText in src/services/types.ts (kept local so this
