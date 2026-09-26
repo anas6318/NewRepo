@@ -162,7 +162,7 @@ test("styled/real terms exist in all three dictionaries and differ from the code
   const dicts = [ar, he, en] as unknown as Record<string, Record<string, string>>[];
   for (const dict of dicts) {
     const media = dict.media!;
-    for (const key of ["styled", "real", "styledShort", "realShort", "toggleLabel", "styledNote", "realNote"]) {
+    for (const key of ["styled", "real", "styledShort", "realShort"]) {
       assert.equal(typeof media[key], "string", key);
       assert.ok(media[key]!.trim().length > 0, key);
     }

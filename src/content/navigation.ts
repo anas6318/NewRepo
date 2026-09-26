@@ -70,10 +70,10 @@ export interface NavClub {
 export const SHOP_BY_CLUB: NavClub[] = [
   { id: "barcelona", query: "barcelona", label: { ar: "برشلونة", he: "ברצלונה", en: "Barcelona" } },
   { id: "real-madrid", query: "real madrid", label: { ar: "ريال مدريد", he: "ריאל מדריד", en: "Real Madrid" } },
-  { id: "milan", query: "milan", label: { ar: "ميلان", he: "מילאן", en: "Milan" } },
-  { id: "manchester", query: "manchester", label: { ar: "مانشستر", he: "מנצ׳סטר", en: "Manchester" } },
+  // Full club names: "milan" also matches Inter, "manchester" also matches City.
+  { id: "ac-milan", query: "ac milan", label: { ar: "إيه سي ميلان", he: "מילאן", en: "AC Milan" } },
+  { id: "manchester-united", query: "manchester united", label: { ar: "مانشستر يونايتد", he: "מנצ׳סטר יונייטד", en: "Manchester United" } },
   { id: "liverpool", query: "liverpool", label: { ar: "ليفربول", he: "ליברפול", en: "Liverpool" } },
-  { id: "juventus", query: "juventus", label: { ar: "يوفنتوس", he: "יובנטוס", en: "Juventus" } },
 ];
 
 /** Where "All Clubs & Teams" goes — the full catalog, unfiltered. */

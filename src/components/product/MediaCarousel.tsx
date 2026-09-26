@@ -1,5 +1,5 @@
 /**
- * A compact image carousel for product cards and the product page.
+ * A compact image carousel for product cards.
  *
  * Replaces the old binary Styled/Real switch. That control asked a shopper to
  * understand an internal distinction — a styled presentation render versus a
@@ -8,9 +8,8 @@
  *
  * The one genuinely hard part is that a product card is also a LINK. A drag
  * that ends on the image must not navigate, while a deliberate tap must. The
- * component therefore tracks pointer movement and reports, via `onDragState`,
- * whether the gesture that just ended was a drag — the card suppresses its
- * own click when it was.
+ * component therefore tracks pointer movement and, when the gesture that just
+ * ended was a drag, swallows the click so `onActivate` never fires.
  *
  * Scrolling is native (`scroll-snap` on a `overflow-x: auto` track), so touch
  * swipe, trackpad and momentum all behave the way the platform intends.
@@ -30,20 +29,11 @@ const DRAG_THRESHOLD_PX = 8;
 
 export interface MediaCarouselProps {
   images: ProductImage[];
-  /** Card frames are small and captionless; page frames get controls. */
-  variant?: "card" | "page";
   eager?: boolean;
   width?: number;
   height?: number;
   /** Rendered when there are no images at all. */
   fallback?: React.ReactNode;
-  /** Told when a gesture turned into a drag, so a parent link can ignore the
-   * click that follows. */
-  onDragState?: (dragging: boolean) => void;
-  /** Reports the slide actually on screen. */
-  onActiveChange?: (index: number) => void;
-  /** Externally driven index (thumbnails). Changing it moves the track. */
-  activeIndex?: number;
   /**
    * Called for a DELIBERATE tap (not a drag). The product card uses this to
    * open the product: the card cannot put a link on top of the track, because
@@ -55,14 +45,10 @@ export interface MediaCarouselProps {
 
 export function MediaCarousel({
   images,
-  variant = "card",
   eager,
   width = 600,
   height = 750,
   fallback,
-  onDragState,
-  onActiveChange,
-  activeIndex,
   onActivate,
 }: MediaCarouselProps) {
   const { t } = useI18n();
@@ -91,16 +77,6 @@ export function MediaCarousel({
     },
     [count],
   );
-
-  // Follow an externally controlled index (the product page's thumbnails).
-  useEffect(() => {
-    if (activeIndex === undefined) return;
-    if (activeIndex === active) return;
-    goTo(activeIndex);
-    // `active` intentionally omitted: this must react to the PROP changing,
-    // not to our own scroll updating internal state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, goTo]);
 
   // A swipe moves the track; `active` has to follow what is on screen.
   useEffect(() => {
@@ -134,10 +110,6 @@ export function MediaCarousel({
     };
   }, [count]);
 
-  useEffect(() => {
-    onActiveChange?.(active);
-  }, [active, onActiveChange]);
-
   /* ── drag vs tap ──────────────────────────────────────────────────────── */
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -149,17 +121,15 @@ export function MediaCarousel({
     if (!start || dragged.current) return;
     if (Math.abs(e.clientX - start.x) > DRAG_THRESHOLD_PX || Math.abs(e.clientY - start.y) > DRAG_THRESHOLD_PX) {
       dragged.current = true;
-      onDragState?.(true);
     }
   };
   const endPointer = () => {
     dragStart.current = null;
     if (dragged.current) {
       // Cleared on the next tick, AFTER the click event this gesture would
-      // otherwise produce has been suppressed by the parent.
+      // otherwise produce has been swallowed by the track's onClick.
       window.setTimeout(() => {
         dragged.current = false;
-        onDragState?.(false);
       }, 0);
     }
   };
@@ -169,7 +139,7 @@ export function MediaCarousel({
   const single = count === 1;
 
   return (
-    <div className={`media-carousel media-carousel--${variant}`}>
+    <div className="media-carousel">
       <div
         className="media-carousel__track"
         ref={trackRef}

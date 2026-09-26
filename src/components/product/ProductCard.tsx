@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import { Link, useNavigate } from "../../lib/router.tsx";
 import { useI18n } from "../../lib/i18n/index.tsx";
 import { useWishlist } from "../../services/store.tsx";
@@ -18,10 +17,6 @@ export function ProductCard({ product, eager }: { product: Product; eager?: bool
   const inWishlist = wishlist.has(product.slug);
   // Every image, in customer order: styled preview → real front → real back.
   const slides = customerSlides(product);
-  /** True while a drag gesture is in flight, so the stretched card link does
-   * not fire the click that a swipe would otherwise produce. */
-  const dragging = useRef(false);
-  const [, force] = useState(0);
   const category = t(`nav.${categoryNavKey(product.categorySlug)}`);
   // Resolved against the base price, which is exactly what the card shows —
   // so the struck-through figure is the product's real regular price and the
@@ -35,12 +30,8 @@ export function ProductCard({ product, eager }: { product: Product; eager?: bool
       <div className="prod-card__frame">
         <MediaCarousel
           images={slides}
-          variant="card"
           {...(eager ? { eager } : {})}
-          onDragState={(isDragging) => {
-            dragging.current = isDragging;
-            force((n) => n + 1);
-          }}
+          // Tap-vs-drag is settled inside the carousel: a swipe never reaches onActivate.
           onActivate={() => {
             track("select_item", { item_id: product.slug });
             navigate(`/${locale}/product/${product.slug}`);

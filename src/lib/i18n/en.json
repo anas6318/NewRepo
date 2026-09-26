@@ -169,19 +169,10 @@
     "styledLeadNote": "The first image is a styled presentation image. The photographs that follow show the actual product."
   },
   "media": {
-    "toggleLabel": "Product image view",
     "styled": "Styled Preview",
     "real": "Real Product",
     "styledShort": "Styled",
-    "realShort": "Real",
-    "styledNote": "A presentation image styled in the CROWNED look. It may be AI-generated or professionally styled.",
-    "realNote": "The actual product photograph — what you receive.",
-    "adminStyledLabel": "Styled Preview Image",
-    "adminRealLabel": "Real Product Image",
-    "adminStyledHelp": "Premium presentation image used for the storefront. This may be AI-generated or professionally styled.",
-    "adminRealHelp": "Actual photograph of the product customers will receive.",
-    "loadingReal": "Loading the product photo…",
-    "realUnavailable": "The product photo could not be loaded."
+    "realShort": "Real"
   },
   "cart": {
     "title": "Your Cart",

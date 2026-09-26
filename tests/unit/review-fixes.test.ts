@@ -268,7 +268,8 @@ test("a swipe updates the active slide, coalesced to one measurement per frame",
 
 test("a drag is distinguished from a tap, so a swipe cannot navigate", () => {
   assert.ok(/DRAG_THRESHOLD_PX/.test(CAROUSEL), "a movement threshold exists");
-  assert.ok(/onDragState\?\.\(true\)/.test(CAROUSEL), "and it is reported to the card");
+  assert.ok(/> DRAG_THRESHOLD_PX\) \{\s*dragged\.current = true;/.test(CAROUSEL), "crossing it marks the gesture as a drag");
+  assert.ok(/setTimeout\(\(\) => \{\s*dragged\.current = false;/.test(CAROUSEL), "and the mark is cleared only after the click it must swallow");
   // The tap target is the carousel itself, not a link layered over it: a
   // link covering the scroller swallows the touch and the track could never
   // be swiped on a phone. So the drag guard lives where the click does.

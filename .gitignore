@@ -26,3 +26,9 @@ npm-debug.log*
 *.tsbuildinfo
 .vercel
 .netlify
+
+graphify-out/
+
+.claude/journal/
+.claude/.skill-update-pending
+.claude/.reconcile-state
