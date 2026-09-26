@@ -28,7 +28,7 @@ async function geometry(page) {
       const r = el.getBoundingClientRect();
       return { w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) };
     };
-    const img = document.querySelector(".gallery__track .media-stack__img.is-on, .gallery__slide img");
+    const img = document.querySelector(".gallery__slide img");
     const ir = img?.getBoundingClientRect();
     return {
       vh: window.innerHeight,
