@@ -1,6 +1,7 @@
 /** Shared catalog machinery: URL-synced filters + sorted grid (spec §19). */
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "../../lib/router.tsx";
+import { clubForTag } from "../../lib/clubs.ts";
 import { useI18n } from "../../lib/i18n/index.tsx";
 import { dataService } from "../../services/index.ts";
 import type { Product, ProductFilters } from "../../services/types.ts";
@@ -33,7 +34,8 @@ export function useCatalog(base: ProductFilters) {
     if (g("price") === "over200") f.priceMin = 201;
     if (g("personalizable") === "1") f.personalizable = true;
     if (g("q")) f.query = g("q");
-    if (g("club")) f.club = g("club");
+    const known = clubForTag(g("club"));
+    if (known) f.club = known.tag;
     if (!f.sort) f.sort = (g("sort") as ProductFilters["sort"]) ?? "featured";
     if (g("sort")) f.sort = g("sort") as ProductFilters["sort"];
     return f;
@@ -56,15 +58,33 @@ export function useCatalog(base: ProductFilters) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filterKey is the value identity of filters
   }, [filterKey]);
 
-  const setFilter = (key: string, value: string | null) => {
+  // ?club= accepts any case of a registry club tag. An unknown value is
+  // ignored (no filtering, plain heading) and dropped from the URL in place,
+  // so it is never shown or shared.
+  const rawClub = params.get("club");
+  const club = clubForTag(rawClub);
+  useEffect(() => {
+    if (rawClub === null || clubForTag(rawClub)) return;
     const next = new URLSearchParams(params);
-    if (value === null || value === "") next.delete(key);
-    else next.set(key, value);
+    next.delete("club");
+    setParams(next, { replace: true });
+  }, [rawClub, params, setParams]);
+
+  // Several keys at once build ONE URL: successive single-key updates would
+  // each start from the same stale `params` and undo one another.
+  const setFilter = (key: string | readonly string[], value: string | null) => {
+    const next = new URLSearchParams(params);
+    for (const k of typeof key === "string" ? [key] : key) {
+      if (value === null || value === "") next.delete(k);
+      else next.set(k, value);
+    }
     setParams(next);
   };
 
-  return { products, filters, params, setFilter };
+  return { products, filters, params, setFilter, club };
 }
+
+const PANEL_FILTER_KEYS = ["version", "size", "sleeve", "audience", "era", "price", "personalizable"];
 
 export function FilterBar({
   params,
@@ -72,12 +92,12 @@ export function FilterBar({
   showAudience = true,
 }: {
   params: URLSearchParams;
-  setFilter: (key: string, value: string | null) => void;
+  setFilter: (key: string | readonly string[], value: string | null) => void;
   showAudience?: boolean;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const active = ["version", "size", "sleeve", "audience", "era", "price", "personalizable"].filter((k) => params.get(k)).length;
+  const active = PANEL_FILTER_KEYS.filter((k) => params.get(k)).length + (clubForTag(params.get("club")) ? 1 : 0);
 
   return (
     <div className="filterbar">
@@ -157,9 +177,7 @@ export function FilterBar({
             <button
               type="button"
               className="btn btn--ghost btn--sm"
-              onClick={() => {
-                for (const k of ["version", "size", "sleeve", "audience", "era", "price", "personalizable"]) setFilter(k, null);
-              }}
+              onClick={() => setFilter([...PANEL_FILTER_KEYS, "club"], null)}
             >
               {t("filters.clear")}
             </button>

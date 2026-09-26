@@ -101,6 +101,83 @@ export async function shop_by_club_links_run_a_real_catalog_search({ newPage, BA
   }
 }
 
+export async function a_club_param_in_any_case_opens_that_club_page_with_its_own_canonical({ newPage, BASE }) {
+  const { page, context, pageErrors } = await newPage(DESKTOP);
+  try {
+    await page.goto(`${BASE}/en/shop?club=AC-Milan`, { waitUntil: "networkidle" });
+    assert.equal((await page.locator("main h1").textContent()).trim(), "AC Milan", "club heading from a mixed-case ?club=");
+    const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+    assert.ok(canonical && canonical.endsWith("/en/shop?club=ac-milan"), `canonical points at the club page: ${canonical}`);
+    const alternates = await page.evaluate(() =>
+      [...document.querySelectorAll('link[rel="alternate"][hreflang]')].map((l) => `${l.getAttribute("hreflang")} ${l.getAttribute("href")}`),
+    );
+    for (const loc of ["ar", "he", "en"]) {
+      assert.ok(alternates.some((a) => a.startsWith(`${loc} `) && a.endsWith(`/${loc}/shop?club=ac-milan`)), `${loc} hreflang: ${alternates.join(" | ")}`);
+    }
+
+    // Plain /shop keeps its own canonical.
+    await page.goto(`${BASE}/en/shop`, { waitUntil: "networkidle" });
+    const plain = await page.locator('link[rel="canonical"]').getAttribute("href");
+    assert.ok(plain && plain.endsWith("/en/shop"), `plain shop canonical: ${plain}`);
+    assert.equal(pageErrors.length, 0, `no page errors: ${pageErrors.join(" | ")}`);
+  } finally {
+    await context.close();
+  }
+}
+
+export async function an_unknown_club_param_is_ignored_and_dropped_from_the_url({ newPage, BASE }) {
+  const { page, context } = await newPage(DESKTOP);
+  try {
+    await page.goto(`${BASE}/en/shop`, { waitUntil: "networkidle" });
+    const shopHeading = (await page.locator("main h1").textContent()).trim();
+    const shopCount = (await page.locator("main [aria-live]").innerText()).trim();
+
+    await page.goto(`${BASE}/en/shop?club=random-value`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => !new URL(window.location.href).searchParams.has("club"), null, { timeout: 5000 });
+    assert.equal((await page.locator("main h1").textContent()).trim(), shopHeading, "plain Shop heading");
+    assert.equal((await page.locator("main [aria-live]").innerText()).trim(), shopCount, "unfiltered catalog");
+    const text = await page.locator("main").innerText();
+    assert.ok(!text.includes("random-value"), "the raw value is never shown");
+    const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+    assert.ok(canonical && canonical.endsWith("/en/shop"), `canonical falls back to /shop: ${canonical}`);
+  } finally {
+    await context.close();
+  }
+}
+
+export async function clear_filters_on_a_club_page_removes_the_club({ newPage, BASE }) {
+  const { page, context } = await newPage(DESKTOP);
+  try {
+    await page.goto(`${BASE}/en/shop?club=ac-milan&size=M`, { waitUntil: "networkidle" });
+    const toggle = page.locator(".filterbar button[aria-expanded]").first();
+    assert.equal((await toggle.locator(".count-dot").innerText()).trim(), "2", "club + size count as active filters");
+    await toggle.click();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await page.waitForFunction(() => window.location.search === "", null, { timeout: 5000 });
+    assert.equal(new URL(page.url()).pathname, "/en/shop");
+    assert.equal((await page.locator("main h1").textContent()).trim(), "Shop", "back to the plain Shop heading");
+  } finally {
+    await context.close();
+  }
+}
+
+export async function club_pages_never_show_raw_tags({ newPage, BASE }) {
+  const { page, context } = await newPage(DESKTOP);
+  try {
+    // Tags that differ from every label; en + one RTL locale.
+    for (const locale of ["en", "ar"]) {
+      for (const tag of ["ac-milan", "manunited", "real-madrid"]) {
+        await page.goto(`${BASE}/${locale}/shop?club=${tag}`, { waitUntil: "networkidle" });
+        const text = await page.locator("main").innerText();
+        assert.ok(!text.toLowerCase().includes(tag), `/${locale}/shop?club=${tag}: raw tag visible in main`);
+        assert.ok((await page.locator("main h1").textContent()).trim().length > 0, `/${locale}/shop?club=${tag}: heading`);
+      }
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 export async function customer_care_links_work_and_read_as_secondary({ newPage, BASE }) {
   const { page, context } = await newPage(DESKTOP);
   try {
