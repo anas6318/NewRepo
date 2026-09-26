@@ -39,21 +39,20 @@ export const PRIMARY_NAV: NavItem[] = [
 ];
 
 /**
- * A club entry. Clubs are NOT a data model — they are saved searches over the
- * existing catalog index, which already matches product names (ar/he/en),
- * category, era, season and tags. `/shop?q=barcelona` is a real, working
- * route today; nothing new has to be stored.
+ * A club entry. Clubs are NOT a data model — they are exact-tag filters over
+ * the existing catalog: `/shop?club=<tag>` keeps only products whose `tags`
+ * include that tag (src/services/catalog.ts). Nothing new has to be stored.
  */
 export interface NavClub {
   id: string;
   /**
-   * Query string passed to /shop?q=. Deliberately kept in ENGLISH even on the
-   * Arabic and Hebrew menus: it is matched against the catalog index, and
-   * product names are far more reliably English than transliterated. The
-   * label the customer reads is localized; the query behind it is not.
+   * The club's product tag as it exists in the live catalog, passed to
+   * /shop?club=. This alone decides which products match; it is never shown
+   * to customers.
    */
-  query: string;
-  /** Localized display name — an Arabic menu must not sprout Latin text. */
+  tag: string;
+  /** Localized display name only — it never affects matching. An Arabic menu
+   * must not sprout Latin text. */
   label: LocalizedText;
 }
 
@@ -61,23 +60,21 @@ export interface NavClub {
  * CURATED CLUB LIST — EDIT THIS TO MATCH THE LIVE CATALOG.
  *
  * Kept short on purpose: a wall of clubs is worse than six good ones. Each
- * entry must correspond to products that genuinely exist, or the link leads
- * to an empty result page. Verify against the live catalog before launch and
- * remove anything that returns nothing — `tests/e2e/26-navigation-media.e2e.mjs`
- * asserts every club link resolves to a working page, but it cannot know
- * which clubs YOUR catalog stocks.
+ * `tag` must be the exact tag the live catalog puts on that club's products
+ * (verified against a live-catalog snapshot taken 2026-09-26), or the link
+ * leads to an empty result page. Labels are display-only; matching uses the
+ * tag. `tests/e2e/26-navigation-media.e2e.mjs` asserts every club link
+ * resolves to a working page, but it cannot know which clubs YOUR catalog
+ * stocks.
  */
 export const SHOP_BY_CLUB: NavClub[] = [
-  { id: "barcelona", query: "barcelona", label: { ar: "برشلونة", he: "ברצלונה", en: "Barcelona" } },
-  { id: "real-madrid", query: "real madrid", label: { ar: "ريال مدريد", he: "ריאל מדריד", en: "Real Madrid" } },
-  // Full club names: "milan" also matches Inter, "manchester" also matches City.
-  // ar/he kept as bare "Milan": the live catalog's own product names (e.g.
-  // ac-milan-06-07-away-retro) use bare "ميلان"/"מילאן", not the full "AC
-  // Milan" form, and Inter's distinct "إنتر ميلان"/"אינטר מילאן" naming means
-  // bare "Milan" is unambiguous.
-  { id: "ac-milan", query: "ac milan", label: { ar: "ميلان", he: "מילאן", en: "AC Milan" } },
-  { id: "manchester-united", query: "manchester united", label: { ar: "مانشستر يونايتد", he: "מנצ׳סטר יונייטד", en: "Manchester United" } },
-  { id: "liverpool", query: "liverpool", label: { ar: "ليفربول", he: "ליברפול", en: "Liverpool" } },
+  { id: "barcelona", tag: "barcelona", label: { ar: "برشلونة", he: "ברצלונה", en: "Barcelona" } },
+  { id: "real-madrid", tag: "real-madrid", label: { ar: "ريال مدريد", he: "ריאל מדריד", en: "Real Madrid" } },
+  // ar/he label uses the bare "Milan" form because that is how the catalog's
+  // own ar/he product names refer to AC Milan (display only).
+  { id: "ac-milan", tag: "ac-milan", label: { ar: "ميلان", he: "מילאן", en: "AC Milan" } },
+  { id: "manchester-united", tag: "manunited", label: { ar: "مانشستر يونايتد", he: "מנצ׳סטר יונייטד", en: "Manchester United" } },
+  { id: "liverpool", tag: "liverpool", label: { ar: "ليفربول", he: "ליברפול", en: "Liverpool" } },
 ];
 
 /** Where "All Clubs & Teams" goes — the full catalog, unfiltered. */
@@ -86,7 +83,7 @@ export const ALL_CLUBS_PATH = "/shop";
 /**
  * The FOOTBALL menu: the primary shopping hierarchy.
  *
- * Every path is an existing route — /shop supports ?sort= and ?q= through the
+ * Every path is an existing route — /shop supports ?sort=, ?q= and ?club= through the
  * shared catalog filter machinery, and each /category/… slug is already in
  * StorefrontApp's route table.
  */
@@ -117,7 +114,12 @@ export const SHOP_MENU: NavGroup[] = [
 
 /** Club links as ordinary items, for the menus that render flat lists. */
 export function clubNavItems(): { id: string; label: LocalizedText; path: string }[] {
-  return SHOP_BY_CLUB.map((c) => ({ id: c.id, label: c.label, path: `/shop?q=${encodeURIComponent(c.query)}` }));
+  return SHOP_BY_CLUB.map((c) => ({ id: c.id, label: c.label, path: `/shop?club=${encodeURIComponent(c.tag)}` }));
+}
+
+/** The club whose tag is exactly `tag`, for showing its localized label. */
+export function clubByTag(tag: string | null | undefined): NavClub | undefined {
+  return tag ? SHOP_BY_CLUB.find((c) => c.tag === tag) : undefined;
 }
 
 /**
