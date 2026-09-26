@@ -71,7 +71,11 @@ export const SHOP_BY_CLUB: NavClub[] = [
   { id: "barcelona", query: "barcelona", label: { ar: "برشلونة", he: "ברצלונה", en: "Barcelona" } },
   { id: "real-madrid", query: "real madrid", label: { ar: "ريال مدريد", he: "ריאל מדריד", en: "Real Madrid" } },
   // Full club names: "milan" also matches Inter, "manchester" also matches City.
-  { id: "ac-milan", query: "ac milan", label: { ar: "إيه سي ميلان", he: "מילאן", en: "AC Milan" } },
+  // ar/he kept as bare "Milan": the live catalog's own product names (e.g.
+  // ac-milan-06-07-away-retro) use bare "ميلان"/"מילאן", not the full "AC
+  // Milan" form, and Inter's distinct "إنتر ميلان"/"אינטר מילאן" naming means
+  // bare "Milan" is unambiguous.
+  { id: "ac-milan", query: "ac milan", label: { ar: "ميلان", he: "מילאן", en: "AC Milan" } },
   { id: "manchester-united", query: "manchester united", label: { ar: "مانشستر يونايتد", he: "מנצ׳סטר יונייטד", en: "Manchester United" } },
   { id: "liverpool", query: "liverpool", label: { ar: "ليفربول", he: "ליברפול", en: "Liverpool" } },
 ];
