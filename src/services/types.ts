@@ -706,6 +706,8 @@ export interface ProductFilters {
   priceMin?: number;
   priceMax?: number;
   query?: string;
+  /** Exact product tag (e.g. a club tag from SHOP_BY_CLUB); no fuzzy matching. */
+  club?: string;
   sort?: "newest" | "price_asc" | "price_desc" | "featured";
 }
 
