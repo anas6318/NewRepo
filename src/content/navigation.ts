@@ -13,6 +13,7 @@
  */
 
 import type { LocalizedText } from "../services/types.ts";
+import { clubForTag, clubShopPath } from "../lib/clubs.ts";
 
 export interface NavItem {
   /** Stable identifier (doubles as React key). */
@@ -39,16 +40,16 @@ export const PRIMARY_NAV: NavItem[] = [
 ];
 
 /**
- * A club entry. Clubs are NOT a data model — they are exact-tag filters over
- * the existing catalog: `/shop?club=<tag>` keeps only products whose `tags`
- * include that tag (src/services/catalog.ts). Nothing new has to be stored.
+ * A Shop by Club menu entry. Clubs are NOT a data model — they are tag
+ * filters over the existing catalog: `/shop?club=<tag>` keeps only products
+ * whose `tags` include that club tag (src/services/catalog.ts). Tag and label
+ * come from the club registry (src/lib/clubs.ts).
  */
 export interface NavClub {
   id: string;
   /**
-   * The club's product tag as it exists in the live catalog, passed to
-   * /shop?club=. This alone decides which products match; it is never shown
-   * to customers.
+   * The club's canonical product tag (registry), passed to /shop?club=. This
+   * alone decides which products match; it is never shown to customers.
    */
   tag: string;
   /** Localized display name only — it never affects matching. An Arabic menu
@@ -57,25 +58,28 @@ export interface NavClub {
 }
 
 /**
- * CURATED CLUB LIST — EDIT THIS TO MATCH THE LIVE CATALOG.
+ * CURATED MENU — which registry clubs appear under Shop by Club, in order.
  *
- * Kept short on purpose: a wall of clubs is worse than six good ones. Each
- * `tag` must be the exact tag the live catalog puts on that club's products
- * (verified against a live-catalog snapshot taken 2026-09-26), or the link
- * leads to an empty result page. Labels are display-only; matching uses the
- * tag. `tests/e2e/26-navigation-media.e2e.mjs` asserts every club link
- * resolves to a working page, but it cannot know which clubs YOUR catalog
- * stocks.
+ * Kept short on purpose: a wall of clubs is worse than six good ones. Tags
+ * and labels live in the club registry (src/lib/clubs.ts, verified against a
+ * live-catalog snapshot taken 2026-09-26); a tag listed here that is missing
+ * from the registry fails at module load. `tests/e2e/26-navigation-media.e2e.mjs`
+ * asserts every club link resolves to a working page, but it cannot know
+ * which clubs YOUR catalog stocks.
  */
-export const SHOP_BY_CLUB: NavClub[] = [
-  { id: "barcelona", tag: "barcelona", label: { ar: "برشلونة", he: "ברצלונה", en: "Barcelona" } },
-  { id: "real-madrid", tag: "real-madrid", label: { ar: "ريال مدريد", he: "ריאל מדריד", en: "Real Madrid" } },
-  // ar/he label uses the bare "Milan" form because that is how the catalog's
-  // own ar/he product names refer to AC Milan (display only).
-  { id: "ac-milan", tag: "ac-milan", label: { ar: "ميلان", he: "מילאן", en: "AC Milan" } },
-  { id: "manchester-united", tag: "manunited", label: { ar: "مانشستر يونايتد", he: "מנצ׳סטר יונייטד", en: "Manchester United" } },
-  { id: "liverpool", tag: "liverpool", label: { ar: "ليفربول", he: "ליברפול", en: "Liverpool" } },
+const MENU_CLUBS: [id: string, tag: string][] = [
+  ["barcelona", "barcelona"],
+  ["real-madrid", "real-madrid"],
+  ["ac-milan", "ac-milan"],
+  ["manchester-united", "manunited"],
+  ["liverpool", "liverpool"],
 ];
+
+export const SHOP_BY_CLUB: NavClub[] = MENU_CLUBS.map(([id, tag]) => {
+  const club = clubForTag(tag);
+  if (!club) throw new Error(`navigation: club tag "${tag}" is not in the club registry`);
+  return { id, tag: club.tag, label: club.label };
+});
 
 /** Where "All Clubs & Teams" goes — the full catalog, unfiltered. */
 export const ALL_CLUBS_PATH = "/shop";
@@ -114,12 +118,14 @@ export const SHOP_MENU: NavGroup[] = [
 
 /** Club links as ordinary items, for the menus that render flat lists. */
 export function clubNavItems(): { id: string; label: LocalizedText; path: string }[] {
-  return SHOP_BY_CLUB.map((c) => ({ id: c.id, label: c.label, path: `/shop?club=${encodeURIComponent(c.tag)}` }));
+  return SHOP_BY_CLUB.map((c) => ({ id: c.id, label: c.label, path: clubShopPath(c.tag) }));
 }
 
-/** The club whose tag is exactly `tag`, for showing its localized label. */
+/** The menu club whose tag matches `tag` once registry-normalized (trimmed,
+ * case-insensitive), for showing its localized label. */
 export function clubByTag(tag: string | null | undefined): NavClub | undefined {
-  return tag ? SHOP_BY_CLUB.find((c) => c.tag === tag) : undefined;
+  const club = clubForTag(tag);
+  return club ? SHOP_BY_CLUB.find((c) => c.tag === club.tag) : undefined;
 }
 
 /**
