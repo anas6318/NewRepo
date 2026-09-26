@@ -52,6 +52,7 @@ import {
   toPublicBadge,
   validateBadgeCatalog,
 } from "../../lib/badges.ts";
+import { normalizeProductTags, parseImportedClub } from "../../lib/clubs.ts";
 import { toCustomerOrder } from "../../lib/orders.ts";
 import { alreadySent, eventForStatusChange, nextAttempt, recordCustomerEmail, shouldSendCustomerEmail } from "../../lib/order-emails.ts";
 import { priceLine, priceSnapshot, cartSubtotal } from "../../lib/pricing.ts";
@@ -534,6 +535,11 @@ export class DemoDataService implements DataService {
     if (product.status !== "draft" && product.status !== "archived" && product.rightsStatus !== "cleared") {
       return { ok: false, error: "rights_not_cleared" };
     }
+    // Same club-tag rule as the edge function: at most one registry club,
+    // stored canonical; every other tag is kept exactly as sent.
+    const tagCheck = normalizeProductTags(product.tags);
+    if (tagCheck.error) return { ok: false, error: tagCheck.error };
+    product = { ...product, tags: tagCheck.tags };
     const idx = this.db.products.findIndex((p) => p.id === product.id);
     if (idx >= 0) this.db.products[idx] = product;
     else this.db.products.unshift(product);
@@ -577,6 +583,9 @@ export class DemoDataService implements DataService {
       // owner-managed catalog. Untrusted supplier text never creates one.
       const badgeImport = parseImportedBadges(row, this.badgeCatalog());
       errors.push(...badgeImport.errors);
+      // Optional `club` column (same rule as the edge function).
+      const clubImport = parseImportedClub(row);
+      errors.push(...clubImport.errors);
       if (errors.length) {
         results.push({ row: i + 1, ok: false, slug, errors, duplicate });
         return;
@@ -604,7 +613,7 @@ export class DemoDataService implements DataService {
         featured: false,
         images: [],
         relatedSlugs: [],
-        tags: [],
+        tags: clubImport.tags,
         rightsStatus: "pending_review",
         supplier: { sku: row.supplier_sku?.trim(), reference: row.supplier_ref?.trim(), costUsd: Number(row.supplier_cost_usd) || undefined },
         // Catalog presence ≠ inventory: imports are never marked available.
