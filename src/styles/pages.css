@@ -1168,10 +1168,6 @@
   cursor: zoom-in;
 }
 
-/* `.media-stack > .media-stack__img` in components.css sets `cover` at
-   specificity (0,2,0), so the hero needs (0,3,0) to win here. The product
-   cards keep `cover`, where a uniform tile matters more than completeness. */
-.gallery__slide .media-stack > .media-stack__img,
 .gallery__slide img {
   width: 100%;
   height: 100%;

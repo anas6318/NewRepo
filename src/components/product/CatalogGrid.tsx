@@ -33,6 +33,7 @@ export function useCatalog(base: ProductFilters) {
     if (g("price") === "over200") f.priceMin = 201;
     if (g("personalizable") === "1") f.personalizable = true;
     if (g("q")) f.query = g("q");
+    if (g("club")) f.club = g("club");
     if (!f.sort) f.sort = (g("sort") as ProductFilters["sort"]) ?? "featured";
     if (g("sort")) f.sort = g("sort") as ProductFilters["sort"];
     return f;
