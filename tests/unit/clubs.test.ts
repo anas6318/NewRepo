@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CLUBS, clubForTag, clubShopPath, normalizeClubTag, productClubTags, productHasClub } from "../../src/lib/clubs.ts";
 
-test("registry: the 8 live club tags, lowercase and unique, no Juventus", () => {
+test("registry: exactly the 8 live club tags, lowercase and unique", () => {
   assert.deepEqual(
     CLUBS.map((c) => c.tag).sort(),
     ["ac-milan", "atc-madrid", "barcelona", "inter-milan", "liverpool", "mancity", "manunited", "real-madrid"],
@@ -11,7 +11,6 @@ test("registry: the 8 live club tags, lowercase and unique, no Juventus", () => 
     assert.equal(c.tag, normalizeClubTag(c.tag), `${c.tag} is canonical`);
     for (const locale of ["ar", "he", "en"] as const) assert.ok(c.label[locale].trim(), `${c.tag}/${locale} label`);
   }
-  assert.equal(clubForTag("juventus"), undefined);
 });
 
 test("normalizeClubTag: trim + lowercase; non-strings give empty", () => {
