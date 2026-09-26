@@ -140,9 +140,11 @@ test("every Shop by Club menu tag selects only its own club's live products", ()
     liverpool: "liverpool-",
   };
   for (const club of SHOP_BY_CLUB) {
+    const prefix = ownPrefix[club.id];
+    assert.ok(prefix, `${club.id}: known menu club`);
     const ids = idsFor(club.tag);
     assert.ok(ids.length >= 1, `${club.id}: >=1 live product`);
-    for (const id of ids) assert.ok(id.startsWith(ownPrefix[club.id]), `${club.id} selected ${id}`);
+    for (const id of ids) assert.ok(id.startsWith(prefix), `${club.id} selected ${id}`);
   }
 });
 
