@@ -74,7 +74,7 @@ export const SHOP_BY_CLUB: NavClub[] = [
   // ar/he kept as bare "Milan": the live catalog's own product names (e.g.
   // ac-milan-06-07-away-retro) use bare "ميلان"/"מילאן", not the full "AC
   // Milan" form, and Inter's distinct "إنتر ميلان"/"אינטר מילאן" naming means
-  // bare "Milan" is unambiguous. See test-results/U1-labels.json.
+  // bare "Milan" is unambiguous.
   { id: "ac-milan", query: "ac milan", label: { ar: "ميلان", he: "מילאן", en: "AC Milan" } },
   { id: "manchester-united", query: "manchester united", label: { ar: "مانشستر يونايتد", he: "מנצ׳סטר יונייטד", en: "Manchester United" } },
   { id: "liverpool", query: "liverpool", label: { ar: "ليفربول", he: "ליברפול", en: "Liverpool" } },
