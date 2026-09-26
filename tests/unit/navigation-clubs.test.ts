@@ -54,8 +54,11 @@ test("SHOP_BY_CLUB queries never cross-match another club's products (demo seed)
  * test-results/U1-clubs.json (test-results/probe-live.json, liveStatus "ok",
  * 40 products). Includes one product per SHOP_BY_CLUB club plus the two
  * decoys the WIP commit's own comment worried about (Inter Milan, Manchester
- * City), so the "0 other-club hits" assertion is exercised for real, not
- * vacuously (the demo seed has no such decoys). name.ar/he are left empty:
+ * City), plus Atlético Madrid — a same-term decoy for "real madrid" present
+ * in the live catalog (atletico-madrid-26-27-home/-away, tag "atc-madrid",
+ * test-results/probe-live.utf8.json) — so a future regression of the Real
+ * Madrid query to a bare "madrid" would fail the "0 other-club hits" test
+ * instead of passing silently. name.ar/he are left empty:
  * the probe's ar/he fields are corrupted by repeated mis-encoding and are
  * not usable evidence (see U1-clubs.json corruptedFieldsNote); the matcher
  * only needs name.en/tags/categorySlug to resolve these English queries.
@@ -98,6 +101,7 @@ const FIXTURE_CLUB_TAG: Record<string, string> = {
   "manchester-united": "manunited",
   "manchester-city": "mancity", // decoy only, not a SHOP_BY_CLUB entry
   liverpool: "liverpool",
+  "atletico-madrid": "atc-madrid", // decoy only, not a SHOP_BY_CLUB entry
 };
 
 const LIVE_FIXTURE: Product[] = [
@@ -108,6 +112,7 @@ const LIVE_FIXTURE: Product[] = [
   makeProduct("manchester-united-26-27-away", "Manchester United 26/27 Away Jersey", ["manunited", "away", "current"], "current-season"),
   makeProduct("manchester-city-26-27-home", "Manchester City 26/27 Home Jersey", ["mancity", "home", "current"], "current-season"),
   makeProduct("liverpool-26-27-home", "Liverpool 26/27 Home Jersey", ["liverpool", "home", "current"], "current-season"),
+  makeProduct("atletico-madrid-26-27-home", "Atletico Madrid 26/27 Home Jersey", ["atc-madrid", "home", "current"], "current-season"),
 ];
 
 function clubOfFixture(p: Product): string | null {
