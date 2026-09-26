@@ -19,6 +19,7 @@ import type {
   SaleType,
 } from "../../services/types.ts";
 import { productBadgeSettings, resolveProductBadges } from "../../lib/badges.ts";
+import { CLUBS, productClubTags, setProductClubTag } from "../../lib/clubs.ts";
 import { coverImage, imageUrlProblem, imageUrlProblemMessage, orderImages, productImageIssues, productMedia, setRoleImage } from "../../lib/media.ts";
 import { DEFAULT_TIMEZONE, productDiscountable, resolveSale, saleStatus, validateSale } from "../../lib/sales.ts";
 import { demoCategories, ADULT_SIZES, KIDS_SIZES } from "../../services/demo/seed-data.ts";
@@ -264,7 +265,14 @@ export function AdminProductEdit({ id }: { id: string }) {
       toast.push("Saved");
       navigate("/admin/products");
     } else {
-      toast.push(res.error === "rights_not_cleared" ? "Cannot publish: product rights must be cleared first (set Rights status to cleared after review)." : (res.error ?? "Save failed"), "error");
+      toast.push(
+        res.error === "rights_not_cleared"
+          ? "Cannot publish: product rights must be cleared first (set Rights status to cleared after review)."
+          : res.error === "multiple_clubs"
+            ? "This product is tagged with more than one club. Pick a single club in the Club field and save again."
+            : (res.error ?? "Save failed"),
+        "error",
+      );
     }
   };
 
@@ -315,6 +323,20 @@ export function AdminProductEdit({ id }: { id: string }) {
               {demoCategories.map((c) => (
                 <option key={c.slug} value={c.slug}>
                   {c.name.en}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span className="field__label">Club</span>
+            {/* The club lives in `tags` as its canonical registry tag, which
+                is what /shop?club= matches. Changing it replaces only the club
+                tag; every other tag is kept exactly as it was. */}
+            <select className="select" value={productClubTags(product.tags)[0] ?? ""} onChange={(e) => set("tags", setProductClubTag(product.tags, e.target.value))}>
+              <option value="">No club</option>
+              {CLUBS.map((c) => (
+                <option key={c.tag} value={c.tag}>
+                  {c.label.en}
                 </option>
               ))}
             </select>
@@ -557,7 +579,7 @@ export function AdminImport() {
       <p className="text-sm text-muted">
         Upload CSV or JSON (or paste below). Imported products always start as <strong>draft</strong> with rights status <strong>pending_review</strong> and
         availability <strong>confirmation_required</strong> — nothing publishes automatically, and appearing in the supplier catalog is never treated as live
-        inventory. Columns: <code className="num">slug, name_en, name_ar, name_he, desc_en, desc_ar, desc_he, category, price_ils, sizes, badge_codes, badge_price_overrides, supplier_sku, supplier_ref, supplier_cost_usd, personalizable</code>.
+        inventory. Columns: <code className="num">slug, name_en, name_ar, name_he, desc_en, desc_ar, desc_he, category, price_ils, sizes, badge_codes, badge_price_overrides, supplier_sku, supplier_ref, supplier_cost_usd, personalizable, club</code>.
         Template: <code className="num">docs/supplier-import-template.csv</code>.
       </p>
       <p className="text-sm text-muted">
@@ -565,6 +587,11 @@ export function AdminImport() {
         reference internal codes that already exist under <strong>Badge / patch options</strong> — an import never creates a badge from supplier text. Unknown
         codes are reported on the row and skipped. <code className="num">badge_price_overrides</code> takes <code className="num">code:price</code> pairs (for
         example <code className="num">ucl:12</code>) and applies only to that product; anything else inherits the global price.
+      </p>
+      <p className="text-sm text-muted">
+        <code className="num">club</code> is optional: one club tag from the Shop by Club list (<code className="num">{CLUBS.map((c) => c.tag).join(", ")}</code>),
+        in any case. It becomes the product&apos;s club tag, so the product appears under
+        that club once published. Left blank, the product has no club; any other value is reported on the row and the row is skipped.
       </p>
       <p className="text-sm text-muted">
         <code className="num">sizes</code> is optional and pipe- or comma-separated. Supplier aliases (P, G, GG, XG, 2XG) are normalised to public labels; sizes
