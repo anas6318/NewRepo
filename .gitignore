@@ -32,3 +32,11 @@ graphify-out/
 .claude/journal/
 .claude/.skill-update-pending
 .claude/.reconcile-state
+
+# local AI tooling
+.agents/
+.claude/
+.codex/
+AGENTS.md
+CLAUDE.md
+CLAUDE.md.bak
