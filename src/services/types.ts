@@ -708,6 +708,8 @@ export interface ProductFilters {
   query?: string;
   /** Club tag (src/lib/clubs.ts): whole-tag, case-insensitive match; no fuzzy matching. */
   club?: string;
+  /** Any product tag (e.g. STUDIO_TAG in src/lib/studio.ts): whole-tag, case-insensitive match. */
+  tag?: string;
   sort?: "newest" | "price_asc" | "price_desc" | "featured";
 }
 

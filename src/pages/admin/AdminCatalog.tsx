@@ -20,6 +20,7 @@ import type {
 } from "../../services/types.ts";
 import { productBadgeSettings, resolveProductBadges } from "../../lib/badges.ts";
 import { CLUBS, productClubTags, setProductClubTag } from "../../lib/clubs.ts";
+import { hasStudioTag, setStudioTag } from "../../lib/studio.ts";
 import { coverImage, imageUrlProblem, imageUrlProblemMessage, orderImages, productImageIssues, productMedia, setRoleImage } from "../../lib/media.ts";
 import { DEFAULT_TIMEZONE, productDiscountable, resolveSale, saleStatus, validateSale } from "../../lib/sales.ts";
 import { demoCategories, ADULT_SIZES, KIDS_SIZES } from "../../services/demo/seed-data.ts";
@@ -391,6 +392,15 @@ export function AdminProductEdit({ id }: { id: string }) {
           <label className="check">
             <input type="checkbox" checked={product.qualifiesForFreeDelivery} onChange={(e) => set("qualifiesForFreeDelivery", e.target.checked)} /> Counts toward free delivery
           </label>
+          {/* Stored as the internal `crowned-studio` tag; touches no other tag, so the Club select is unaffected. */}
+          <div className="field">
+            <label className="check">
+              <input type="checkbox" checked={hasStudioTag(product.tags)} onChange={(e) => set("tags", setStudioTag(product.tags, e.target.checked))} aria-describedby="studio-hint" /> Show in CROWNED Studio
+            </label>
+            <span id="studio-hint" className="field__hint">
+              The homepage CROWNED Studio section shows up to 4 marked products (published only), ordered like the catalog default: featured first, then newest.
+            </span>
+          </div>
         </div>
       </section>
 

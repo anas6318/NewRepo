@@ -1,6 +1,7 @@
 /** Shared catalog filtering/sorting — used by both data services. */
 import type { CategoryDef, Product, ProductFilters } from "./types.ts";
 import { productHasClub } from "../lib/clubs.ts";
+import { productHasTag, searchableTags } from "../lib/tags.ts";
 
 /** Facet categories are shortcuts over the whole catalog rather than
  * exclusive containers (a player-version current-season shirt appears in
@@ -41,6 +42,7 @@ export function filterProducts(products: Product[], f: ProductFilters, _categori
   if (f.priceMin !== undefined) out = out.filter((p) => p.basePriceIls >= (f.priceMin ?? 0));
   if (f.priceMax !== undefined) out = out.filter((p) => p.basePriceIls <= (f.priceMax ?? Infinity));
   if (f.club) out = out.filter((p) => productHasClub(p, f.club));
+  if (f.tag) out = out.filter((p) => productHasTag(p, f.tag));
 
   if (f.query) {
     const terms = f.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -52,7 +54,9 @@ export function filterProducts(products: Product[], f: ProductFilters, _categori
         p.categorySlug,
         p.era ?? "",
         p.season ?? "",
-        ...p.tags,
+        // Internal management tags (e.g. crowned-studio) never make a product
+        // match a shopper's search; exact `tag` filters still see them.
+        ...searchableTags(p.tags),
         p.nationalTeam ? "national منتخب נבחרת" : "",
       ]
         .join(" ")

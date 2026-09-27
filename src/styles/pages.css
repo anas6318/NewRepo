@@ -953,6 +953,70 @@
   }
 }
 
+/* Studio products (only when the owner marked some): the banner stacks the
+   copy above a row of ordinary product cards and grows to fit them. The
+   empty banner never gets this modifier, so it is unchanged. */
+.custom-hero--products {
+  flex-direction: column;
+  justify-content: center;
+}
+
+.custom-hero__products {
+  position: relative;
+  z-index: 1;
+  padding-block-end: var(--sp-16);
+  /* Cards read like every other card grid, not centred like the banner copy. */
+  text-align: start;
+}
+
+@media (min-width: 721px) {
+  /* Centred, capped tracks: 4 across on desktop, fewer on tablet, and a
+     short row (1–3 products) stays balanced instead of left-packed. */
+  .custom-hero__products .prod-grid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 270px));
+    justify-content: center;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Phones: the photo + scrim stay behind the copy only (one grid area), so
+     the image is not blown up behind the product rows, which sit on the
+     solid dark section colour. Two compact columns keep 4 cards short. */
+  .custom-hero--products {
+    display: grid;
+    grid-template-areas: "copy" "products";
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    min-height: 0;
+  }
+
+  /* Both layers fill the copy area (the banner's align-items: center would
+     otherwise shrink them) and share one stacking level, so the scrim, later
+     in paint order, stays above the 0.85-opacity photo. */
+  .custom-hero--products .custom-hero__bg,
+  .custom-hero--products::after {
+    position: relative;
+    z-index: 0;
+    grid-area: copy;
+    align-self: stretch;
+    justify-self: stretch;
+  }
+
+  .custom-hero--products .custom-hero__content {
+    grid-area: copy;
+  }
+
+  .custom-hero__products {
+    grid-area: products;
+    padding-block: var(--sp-8) var(--sp-12);
+  }
+
+  .custom-hero__products .prod-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-5) var(--sp-3);
+  }
+}
+
 /* ── Filter bar ──────────────────────────────────────────────────────────── */
 .filterbar__panel {
   margin-block-start: var(--sp-4);

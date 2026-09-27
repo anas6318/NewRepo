@@ -22,6 +22,8 @@ import { IconArrow, IconCrown, IconShield, IconShirt, IconTruck, IconWhatsApp } 
 import { whatsappLink } from "../../lib/whatsapp.ts";
 import { dataServiceSafe } from "./page-utils.ts";
 import { SafeImage } from "../../components/ui/SafeImage.tsx";
+import { STUDIO_TAG, studioSelection } from "../../lib/studio.ts";
+import { filterProducts } from "../../services/catalog.ts";
 
 export function HomePage() {
   const { locale, t } = useI18n();
@@ -40,19 +42,19 @@ export function HomePage() {
   const [categories, setCategories] = useState<CategoryDef[]>([]);
   const [featured, setFeatured] = useState<Product[]>([]);
   const [retro, setRetro] = useState<Product[]>([]);
+  const [studio, setStudio] = useState<Product[]>([]);
 
   useEffect(() => {
     let alive = true;
     void dataServiceSafe(async (svc) => {
-      const [cats, feat, r] = await Promise.all([
-        svc.listCategories(),
-        svc.listProducts({ featured: true }),
-        svc.listProducts({ category: "retro", sort: "newest" }),
-      ]);
+      // One catalog download; each section is derived client-side with the
+      // same filters the data service would apply (drafts/archived excluded).
+      const [cats, all] = await Promise.all([svc.listCategories(), svc.listProducts()]);
       if (!alive) return;
       setCategories(cats);
-      setFeatured(feat.slice(0, 4));
-      setRetro(r.slice(0, 4));
+      setFeatured(filterProducts(all, { featured: true }, cats).slice(0, 4));
+      setRetro(filterProducts(all, { category: "retro", sort: "newest" }, cats).slice(0, 4));
+      setStudio(studioSelection(filterProducts(all, { tag: STUDIO_TAG }, cats)));
     });
     return () => {
       alive = false;
@@ -204,8 +206,10 @@ export function HomePage() {
       </section>
 
       {/* 9 — CROWNED Studio (grand finale): one-of-one custom jerseys.
-           Full-bleed editorial banner — imagery sells it, copy stays minimal. */}
-      <section className="custom-hero theme-dark">
+           Full-bleed editorial banner — imagery sells it, copy stays minimal.
+           Products the owner marks "Show in CROWNED Studio" sit below the CTA;
+           with none marked the banner renders exactly as before. */}
+      <section className={`custom-hero theme-dark${studio.length ? " custom-hero--products" : ""}`}>
         <img
           src="/demo/editorial.webp"
           alt={t("home.customImageAlt")}
@@ -234,6 +238,15 @@ export function HomePage() {
             </Link>
           )}
         </div>
+        {studio.length > 0 && (
+          <div className="container custom-hero__products">
+            <div className="prod-grid">
+              {studio.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 10 — Instagram + WhatsApp (dark): lifestyle social proof */}
