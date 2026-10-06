@@ -9,6 +9,8 @@
  */
 import { PASSWORD_MIN_LENGTH } from "../../lib/auth-recovery.ts";
 import { DASHBOARD_AWAITING_SUPPLIER, DASHBOARD_IN_PRODUCTION, inBucket } from "../../../supabase/functions/_shared/zones.ts";
+import { auditDetail, planOrderUpdate, type LifecycleOrder } from "../../../supabase/functions/_shared/order-lifecycle.ts";
+import { decideReplay, parseIdempotencyKey, quickFingerprint, requestHashInput } from "../../../supabase/functions/_shared/order-idempotency.ts";
 import type { DataService, PlaceOrderInput, PlaceOrderResult, SessionInfo } from "../DataService.ts";
 import type {
   AuditEntry,
@@ -55,7 +57,7 @@ import {
 import { normalizeProductTags, parseImportedClub } from "../../lib/clubs.ts";
 import { toCustomerOrder } from "../../lib/orders.ts";
 import { alreadySent, eventForStatusChange, nextAttempt, recordCustomerEmail, shouldSendCustomerEmail } from "../../lib/order-emails.ts";
-import { priceLine, priceSnapshot, cartSubtotal } from "../../lib/pricing.ts";
+import { priceLine, priceSnapshot, cartSubtotal, MAX_LINE_QUANTITY, MAX_ORDER_LINES } from "../../lib/pricing.ts";
 import { discountableAmount, priceValidUntil, resolveSale } from "../../lib/sales.ts";
 import { merchandiseUnitValue, promotionSnapshot, resolvePromotion, validatePromotion, type PromotionLine } from "../../lib/promotions.ts";
 import { evaluateFreeDelivery, resolveDeliveryFee } from "../../lib/delivery.ts";
@@ -192,6 +194,39 @@ export class DemoDataService implements DataService {
 
   /* ── orders ── */
   async placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResult> {
+    // ── idempotency (parity with place-order, A2-S3) ────────────────────
+    // Checked before anything else is read or written. The same attempt
+    // again (same request, same contact) gets its stored order back and
+    // nothing is recorded twice: no second order, email-ledger entry, owner
+    // notification, lead or audit row. A different request under the same
+    // key is a conflict that reveals nothing. No key → legacy path.
+    // This method never awaits, so two concurrent calls cannot interleave:
+    // the second always sees the first one's order.
+    // The stored order keeps everything the owner needs; the copy handed
+    // back at checkout (fresh or replayed) is sanitized exactly like the
+    // tracker's.
+    const checkoutResult = (o: Order, duplicate: boolean): PlaceOrderResult => ({
+      ok: true,
+      orderNumber: o.orderNumber,
+      trackingContact: o.customer.email,
+      order: toCustomerOrder(o),
+      ...(duplicate ? { duplicate: true } : {}),
+    });
+    const idem = parseIdempotencyKey(input.idempotencyKey);
+    if (!idem.ok) return { ok: false, error: "invalid_idempotency_key" };
+    const idemRequestHash = idem.key ? quickFingerprint(requestHashInput(input)) : "";
+    if (idem.key) {
+      const contact = (v: unknown) => (typeof v === "string" ? v.trim().toLowerCase().replace(/[\s-]/g, "") : "");
+      const existing = this.db.orders.find((o) => o.idempotency?.key === idem.key);
+      const decision = decideReplay({
+        existing: existing ? { requestHash: existing.idempotency?.requestHash, contactHash: contact(existing.customer.email) } : null,
+        requestHash: idemRequestHash,
+        contactHash: contact(input.customer?.email),
+      });
+      if (decision === "conflict") return { ok: false, error: "idempotency_conflict" };
+      if (decision === "replay" && existing) return checkoutResult(existing, true);
+    }
+
     const settings = this.db.settings;
     const method = settings.paymentMethods.find((m) => m.id === input.paymentMethod);
     if (!method?.enabled) return { ok: false, error: "payment_method_unavailable" };
@@ -199,15 +234,21 @@ export class DemoDataService implements DataService {
     const zone = this.db.zones.find((z) => z.id === input.zoneId && z.active);
     if (!zone) return { ok: false, error: "zone_unavailable" };
     if (input.lines.length === 0) return { ok: false, error: "empty_cart" };
+    // A1-B2 parity with the server (F2): the same MAX_ORDER_LINES/
+    // MAX_LINE_QUANTITY caps enforced on the client are enforced here too,
+    // since a hand-edited cart or a direct call can bypass the UI entirely.
+    if (input.lines.length > MAX_ORDER_LINES) return { ok: false, error: "too_many_lines" };
 
     // Server-side price recomputation — client totals are never trusted.
     const items: Order["items"] = [];
     for (const line of input.lines) {
+      if (!Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > MAX_LINE_QUANTITY) {
+        return { ok: false, error: "invalid_quantity" };
+      }
       const product = this.db.products.find((p) => p.id === line.productId);
       if (!product || product.status === "draft" || product.status === "archived" || product.status === "unavailable") {
         return { ok: false, error: "product_unavailable" };
       }
-      if (!product.sizes.includes(line.size)) return { ok: false, error: "invalid_size" };
       const adjustments: number[] = [];
       let versionAdjustmentIls = 0;
       let version: Order["items"][number]["version"];
@@ -217,6 +258,13 @@ export class DemoDataService implements DataService {
         version = v.version;
         versionAdjustmentIls = v.adjustmentIls;
       }
+      // A1 "Demo parity": a size must be valid for the SELECTED version —
+      // `versionSizes` overrides `sizes` exactly like sizeOptionsFor() on the
+      // storefront, mirroring the server's forthcoming check (F2).
+      const allowedSizes = product.versionSizes?.[version as JerseyVersion]?.length
+        ? product.versionSizes[version as JerseyVersion]!
+        : product.sizes;
+      if (!allowedSizes.includes(line.size)) return { ok: false, error: "invalid_size" };
       let sleeve: Order["items"][number]["sleeve"];
       if (product.sleeves.length > 1) {
         if (line.sleeve !== "short" && line.sleeve !== "long") return { ok: false, error: "invalid_sleeve" };
@@ -356,6 +404,7 @@ export class DemoDataService implements DataService {
       ],
       ...(needsSupplierCheck ? { supplierConfirmation: { required: true, status: "pending" as const, items: pending } } : {}),
       sheetsSync: { status: "pending" },
+      ...(idem.key ? { idempotency: { key: idem.key, requestHash: idemRequestHash } } : {}),
       isDemo: true,
     };
     this.db.orders.unshift(order);
@@ -379,9 +428,7 @@ export class DemoDataService implements DataService {
     });
     this.audit("storefront", "order_created", orderNumber);
     this.save();
-    // The stored order keeps everything the owner needs; the copy handed
-    // back at checkout is sanitized exactly like the tracker's.
-    return { ok: true, orderNumber, trackingContact: input.customer.email, order: toCustomerOrder(order) };
+    return checkoutResult(order, false);
   }
 
   private newOrderNumber(): string {
@@ -636,37 +683,22 @@ export class DemoDataService implements DataService {
 
   async adminUpdateOrder(orderNumber: string, incoming: Parameters<DataService["adminUpdateOrder"]>[1]) {
     const staff = this.requireStaff();
-    let patch = { ...incoming };
     const order = this.db.orders.find((o) => o.orderNumber === orderNumber);
     if (!order) return { ok: false };
-    // Supplier decisions are recorded with who/when and appended to the
-    // timeline; a rejection never advances the order into production.
-    if (patch.supplierConfirmation && patch.supplierConfirmation.status !== order.supplierConfirmation?.status) {
-      const decided = { ...patch.supplierConfirmation, decidedBy: staff.email, decidedAt: new Date().toISOString() };
-      patch = { ...patch, supplierConfirmation: decided };
-      if (decided.status === "confirmed" && !patch.fulfillmentStatus) {
-        patch.fulfillmentStatus = order.paymentMethod === "bank_transfer" && order.paymentStatus !== "paid" ? "awaiting_payment" : "payment_confirmed";
-      }
-      if (decided.status === "rejected" && !patch.fulfillmentStatus) patch.fulfillmentStatus = "supplier_unavailable";
-    }
-    const previousFulfillment = order.fulfillmentStatus;
-    const previousPayment = order.paymentStatus;
-    if (patch.fulfillmentStatus && patch.fulfillmentStatus !== order.fulfillmentStatus) {
-      order.tracking.push({ status: patch.fulfillmentStatus, at: new Date().toISOString() });
-      if (patch.fulfillmentStatus === "production_started") order.productionStartedAt = new Date().toISOString();
-      if (patch.fulfillmentStatus === "supplier_dispatched") order.supplierDispatchedAt = new Date().toISOString();
-    }
-    Object.assign(order, patch);
+    // The SAME lifecycle rules as the admin-actions edge function: patch
+    // allowlist, role gates, transition matrix, supplier-confirmation
+    // outcomes and the email decision (supabase/functions/_shared/order-lifecycle.ts).
+    const plan = planOrderUpdate(order as unknown as LifecycleOrder, incoming, { email: staff.email, role: staff.role }, new Date().toISOString());
+    if (!plan.ok) return { ok: false, error: plan.error, ...(plan.detail ? { detail: plan.detail } : {}) };
+    if (plan.noop) return { ok: true, order };
+    Object.assign(order, plan.dataPatch);
 
     // Customer status email. Production sends this from the admin-actions
     // edge function; demo mode has no server and no provider, so it records
     // the same ledger entry honestly as "disabled" rather than pretending a
     // mail went out. The idempotency rule is identical: a milestone already
     // delivered is never touched again.
-    const event = eventForStatusChange({
-      ...(patch.fulfillmentStatus && patch.fulfillmentStatus !== previousFulfillment ? { fulfillmentStatus: patch.fulfillmentStatus } : {}),
-      ...(patch.paymentStatus && patch.paymentStatus !== previousPayment ? { paymentStatus: patch.paymentStatus } : {}),
-    });
+    const event = plan.specialEmail ?? eventForStatusChange(plan.emailChange);
     if (event && shouldSendCustomerEmail(order, event)) {
       order.customerEmails = recordCustomerEmail(order.customerEmails, event, {
         status: "disabled",
@@ -676,7 +708,8 @@ export class DemoDataService implements DataService {
         error: "Demo mode — customer emails are not sent",
       });
     }
-    this.audit(staff.email, "order_updated", orderNumber, JSON.stringify(Object.keys(patch)));
+    if (plan.supplierDecision) this.audit(staff.email, `supplier_${plan.supplierDecision}`, orderNumber);
+    this.audit(staff.email, "order_updated", orderNumber, auditDetail(plan.changes));
     this.save();
     return { ok: true, order };
   }

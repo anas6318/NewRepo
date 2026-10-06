@@ -10,28 +10,28 @@ async function totalText(page) {
  * per-product and override cases live in 12-badge-options.e2e.mjs. */
 export async function migrated_legacy_badge_still_adds_its_stored_5_ils({ page, BASE }) {
   await page.goto(`${BASE}/en/product/crimson-2005`, { waitUntil: "networkidle" });
-  assert.ok((await totalText(page)).includes("170"), "base ₪170");
+  assert.ok((await totalText(page)).includes("169"), "base ₪169");
   await page.getByRole("button", { name: /^League badge/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("175"), "legacy badge → ₪175");
+  assert.ok((await totalText(page)).includes("174"), "legacy badge → ₪174");
   await page.getByRole("button", { name: /No badge/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("170"), "removing the badge restores ₪170");
+  assert.ok((await totalText(page)).includes("169"), "removing the badge restores ₪169");
 }
 
 export async function player_version_adjustment_applies({ page, BASE }) {
   await page.goto(`${BASE}/en/product/onyx-home`, { waitUntil: "networkidle" });
-  assert.ok((await totalText(page)).includes("140"), "fan base ₪140 shown initially");
+  assert.ok((await totalText(page)).includes("149"), "fan base ₪149 shown initially");
   await page.locator("fieldset", { hasText: "Version" }).getByRole("button", { name: /Player/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("160"), "player → ₪160");
+  assert.ok((await totalText(page)).includes("179"), "player → ₪179");
 }
 
 export async function quantity_multiplies_total({ page, BASE }) {
   await page.goto(`${BASE}/en/product/crimson-2005`, { waitUntil: "networkidle" });
   await page.locator(".qty button").nth(1).click(); // +
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("340"), "qty 2 → ₪340");
+  assert.ok((await totalText(page)).includes("338"), "qty 2 → ₪338");
 }
 
 export async function name_number_free_with_required_spelling_confirm({ page, BASE }) {
@@ -39,7 +39,7 @@ export async function name_number_free_with_required_spelling_confirm({ page, BA
   await page.fill("#p-name", "AHMAD");
   await page.fill("#p-number", "7");
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("170"), "personalization stays free");
+  assert.ok((await totalText(page)).includes("169"), "personalization stays free");
   assert.ok(await page.locator(".perso-preview").isVisible(), "preview renders");
   // Attempt to add without confirmations → blocked with errors.
   await page.getByRole("button", { name: /Add to Cart/i }).click();

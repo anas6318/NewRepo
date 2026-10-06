@@ -15,6 +15,7 @@ import {
 import type { CartLine, Customer, Product, PromotionConfig, ShippingZone, StoreSettings } from "./types.ts";
 import { dataService } from "./index.ts";
 import { cartSubtotal } from "../lib/pricing.ts";
+import { clampQuantity, mergeCartLine, sanitizeCartLines } from "../lib/schema.ts";
 import { evaluateFreeDelivery, freeDeliveryMessage, type FreeDeliveryResult } from "../lib/delivery.ts";
 import { merchandiseUnitValue, resolvePromotion, type PromotionLine, type PromotionResult } from "../lib/promotions.ts";
 
@@ -63,10 +64,14 @@ export interface CartState {
 
 const CartContext = createContext<CartState | null>(null);
 
+// A1-B1/B2/B3/B4: clampQuantity, mergeCartLine and sanitizeCartLines live in
+// src/lib/schema.ts (a plain .ts module, unlike this .tsx one) specifically
+// so their logic is unit-testable directly — see tests/unit/cart-store.test.ts.
+
 function loadCart(): CartLine[] {
   try {
     const raw = localStorage.getItem(CART_KEY);
-    if (raw) return JSON.parse(raw) as CartLine[];
+    if (raw) return sanitizeCartLines(JSON.parse(raw));
   } catch {
     /* ignore */
   }
@@ -238,15 +243,19 @@ export function StoreProviders({ children }: { children: ReactNode }) {
         const key = lineKey(line);
         setLines((prev) => {
           const existing = prev.find((l) => l.key === key);
-          if (existing) {
-            return prev.map((l) => (l.key === key ? { ...l, quantity: l.quantity + line.quantity } : l));
-          }
-          return [...prev, { ...line, key }];
+          if (existing) return prev.map((l) => (l.key === key ? mergeCartLine(l, line) : l));
+          return [...prev, { ...line, key, quantity: clampQuantity(line.quantity) }];
         });
         setDrawerOpen(true);
       },
+      // A1-B2/A1-B3: quantity is always clamped into 1..MAX_LINE_QUANTITY
+      // here rather than removing the line below 1 — the cart's "−" button
+      // disables itself at quantity 1 (mirroring the Product Page stepper),
+      // so removal only ever happens through the explicit remove control.
+      // This keeps the store API itself safe against any other caller that
+      // might pass 0 or a negative number.
       updateQty: (key, quantity) => {
-        setLines((prev) => (quantity < 1 ? prev.filter((l) => l.key !== key) : prev.map((l) => (l.key === key ? { ...l, quantity } : l))));
+        setLines((prev) => prev.map((l) => (l.key === key ? { ...l, quantity: clampQuantity(quantity) } : l)));
       },
       remove: (key) => setLines((prev) => prev.filter((l) => l.key !== key)),
       clear: () => setLines([]),

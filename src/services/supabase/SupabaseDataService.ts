@@ -44,6 +44,38 @@ interface Row<T> {
   data: T;
 }
 
+/**
+ * Storefront product reads go through the `products_public` view (migration
+ * 0007), which strips supplier/internal fields in the database. Until that
+ * migration is applied the view does not exist and PostgREST answers 404
+ * (`PGRST205`, or `42P01` on older PostgREST): only then do we fall back to
+ * the legacy table read. Any other failure (permissions, network) is a real
+ * error and is NOT masked by a fallback.
+ */
+export const PUBLIC_PRODUCTS_VIEW = "products_public";
+
+export function isMissingRelationError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /\bPGRST205\b|\b42P01\b/.test(msg) || /^select \S+: 404\b/.test(msg);
+}
+
+/**
+ * Account history is served by the `my-orders` edge function (server-side
+ * sanitization). If that function is not deployed yet the gateway answers
+ * 404; only then do we fall back to the legacy direct read.
+ */
+export function isMissingFunctionError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /^invoke \S+: 404$/.test(msg) || /\bNOT_FOUND\b|function was not found/i.test(msg);
+}
+
+const warnedOnce = new Set<string>();
+function warnOnce(key: string, message: string): void {
+  if (warnedOnce.has(key)) return;
+  warnedOnce.add(key);
+  console.warn(message);
+}
+
 export class SupabaseDataService implements DataService {
   readonly mode = "supabase" as const;
   private sb = new SupabaseClient();
@@ -64,14 +96,29 @@ export class SupabaseDataService implements DataService {
     return rows.map((r) => r.data);
   }
 
+  /** Published product rows from the sanitized view, or — only while
+   * migration 0007 is not applied — from the legacy table read. */
+  private async selectPublicProducts(query: string): Promise<Row<Product>[]> {
+    const sb = this.guard();
+    try {
+      return await sb.select<Row<Product>>(PUBLIC_PRODUCTS_VIEW, query);
+    } catch (err) {
+      if (!isMissingRelationError(err)) throw err;
+      warnOnce("products_public", "[crowned] products_public view not found — using the legacy products read until migration 0007 is applied.");
+      return await sb.select<Row<Product>>("products", query);
+    }
+  }
+
   async listProducts(filters?: ProductFilters) {
-    const rows = await this.guard().select<Row<Product>>("products", "select=id,data&status=not.in.(draft,archived)");
-    // Internal supplier fields never reach the storefront.
+    const rows = await this.selectPublicProducts("select=id,data&status=not.in.(draft,archived)");
+    // Internal supplier fields never reach the storefront: the view strips
+    // them in the database, and toPublicProduct stays as defense in depth
+    // (and covers the legacy fallback).
     return filterProducts(rows.map((r) => toPublicProduct(r.data)), filters ?? {}, await this.listCategories());
   }
 
   async getProduct(slug: string) {
-    const rows = await this.guard().select<Row<Product>>("products", `select=id,data&slug=eq.${encodeURIComponent(slug)}&status=not.in.(draft,archived)&limit=1`);
+    const rows = await this.selectPublicProducts(`select=id,data&slug=eq.${encodeURIComponent(slug)}&status=not.in.(draft,archived)&limit=1`);
     const row = rows[0];
     return row ? toPublicProduct(row.data) : null;
   }
@@ -137,7 +184,18 @@ export class SupabaseDataService implements DataService {
   }
 
   async listCustomerOrders(customerId: string) {
-    const rows = await this.guard().select<Row<Order>>("orders", `select=id,data&customer_id=eq.${encodeURIComponent(customerId)}&order=created_at.desc`);
+    const sb = this.guard();
+    try {
+      // Sanitized on the server (my-orders reads only the caller's own rows,
+      // identified from the session JWT). Re-applying the same allowlist here
+      // is a harmless no-op that keeps the client contract identical.
+      const res = await sb.invoke<{ orders: Order[] }>("my-orders", {});
+      return (res.orders ?? []).map((o) => toCustomerOrder(o));
+    } catch (err) {
+      if (!isMissingFunctionError(err)) throw err;
+      warnOnce("my-orders", "[crowned] my-orders function not deployed — using the legacy order history read.");
+    }
+    const rows = await sb.select<Row<Order>>("orders", `select=id,data&customer_id=eq.${encodeURIComponent(customerId)}&order=created_at.desc`);
     // Account order history is a customer-facing response: the same
     // sanitizer the tracker uses, so the two can never drift apart.
     return rows.map((r) => toCustomerOrder(r.data));
@@ -298,8 +356,9 @@ export class SupabaseDataService implements DataService {
   async adminUpdateOrder(orderNumber: string, patch: Parameters<DataService["adminUpdateOrder"]>[1]) {
     try {
       return await this.guard().invoke<{ ok: boolean; order?: Order }>("admin-actions?action=update-order", { orderNumber, patch });
-    } catch {
-      return { ok: false };
+    } catch (e) {
+      // Keep the server's refusal code (invalid_transition, forbidden, …) so Admin can say why.
+      return { ok: false, error: e instanceof Error ? e.message : "update_failed" };
     }
   }
 
@@ -313,8 +372,7 @@ export class SupabaseDataService implements DataService {
 
   async adminResendCustomerEmail(orderNumber: string, event: CustomerEmailEvent) {
     try {
-      return await this.guard().invoke<{ ok: boolean; message: string }>("admin-actions", {
-        action: "resend-customer-email",
+      return await this.guard().invoke<{ ok: boolean; message: string }>("admin-actions?action=resend-customer-email", {
         orderNumber,
         event,
       });

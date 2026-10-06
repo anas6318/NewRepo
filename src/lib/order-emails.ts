@@ -16,6 +16,9 @@ import type { CustomerEmailEvent, CustomerEmailLog, CustomerEmailRecord, Order }
 /** Every milestone the customer hears about, in lifecycle order. */
 export const CUSTOMER_EMAIL_EVENTS: CustomerEmailEvent[] = [
   "order_received",
+  // Emitted only by the order lifecycle when the supplier confirms a held,
+  // unpaid order — no status maps to it.
+  "supplier_confirmed",
   "payment_confirmed",
   "processing",
   "shipped",
@@ -60,6 +63,7 @@ export const PAYMENT_EVENTS: Record<string, CustomerEmailEvent> = {
 /** Admin-facing names. The admin surface of this store is English. */
 export const CUSTOMER_EMAIL_EVENT_LABEL: Record<CustomerEmailEvent, string> = {
   order_received: "Order received",
+  supplier_confirmed: "Availability confirmed",
   payment_confirmed: "Payment confirmed",
   processing: "Processing",
   shipped: "Shipped",

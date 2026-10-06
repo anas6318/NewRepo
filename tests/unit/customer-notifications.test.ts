@@ -10,7 +10,7 @@
  * check them against the app-side mapping in src/lib/order-emails.ts so the
  * two cannot drift.
  */
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -65,6 +65,8 @@ const HEBREW = /[֐-׿]/;
 test("every milestone the owner asked for has a mapped status and a template", () => {
   const required: CustomerEmailEvent[] = [
     "order_received",
+    // A2-B5: a held order is asked to pay only once the supplier confirms.
+    "supplier_confirmed",
     "payment_confirmed",
     "processing",
     "shipped",
@@ -75,7 +77,10 @@ test("every milestone the owner asked for has a mapped status and a template", (
   ];
   assert.deepEqual(CUSTOMER_EMAIL_EVENTS, required);
   for (const event of required) {
-    assert.ok(Object.values(FULFILLMENT_EVENTS).includes(event) || Object.values(PAYMENT_EVENTS).includes(event), `${event} has no status that triggers it`);
+    // supplier_confirmed is emitted by the lifecycle's supplier decision, not by a status mapping.
+    if (event !== "supplier_confirmed") {
+      assert.ok(Object.values(FULFILLMENT_EVENTS).includes(event) || Object.values(PAYMENT_EVENTS).includes(event), `${event} has no status that triggers it`);
+    }
     for (const locale of ["ar", "he", "en"]) {
       const built = emails.statusUpdateEmail(locale, event, { orderNumber: "CR-AB12CD", totalIls: 340 });
       assert.ok(built?.subject && built.html, `${event}/${locale} has no template`);
@@ -332,6 +337,28 @@ test("console mode is recorded as disabled, never as sent", async () => {
   assert.equal(f.calls.length, 0);
 });
 
+test("console mode never logs the customer's PII (A2-S7)", async () => {
+  const logSpy = mock.method(console, "log", () => {});
+  try {
+    const customerOrder = order({
+      locale: "en",
+      customer: { email: "customer@example.com", name: "Anas Test", phone: "0521234567", address: "12 Example St", notes: "call before delivery" },
+    });
+    const record = await notify.sendCustomerStatusEmail(customerOrder, "delivered", CONSOLE_CONFIG, { fetch: fakeFetch().fn });
+    assert.equal(record.status, "disabled");
+
+    const logged = logSpy.mock.calls.map((c) => String(c.arguments.join(" "))).join("\n");
+    assert.ok(logged.length > 0, "console mode should still log something usable from function logs");
+    for (const pii of ["customer@example.com", "Anas Test", "0521234567", "12 Example St", "call before delivery"]) {
+      assert.ok(!logged.includes(pii), `console log leaked PII: ${pii}`);
+    }
+    // The recipient must be redacted (first char + domain only), not omitted outright.
+    assert.match(logged, /to=c\*\*\*@example\.com/);
+  } finally {
+    logSpy.mock.restore();
+  }
+});
+
 test("resend selected without a key is a visible failure, not a silent fallback", async () => {
   const f = fakeFetch();
   const record = await notify.sendCustomerStatusEmail(order({ locale: "en" }), "delivered", { ...CONFIG, apiKey: "" }, { fetch: f.fn });
@@ -402,10 +429,17 @@ test("an Admin status change is what triggers the customer email", () => {
   const src = read("../../supabase/functions/admin-actions/index.ts");
   assert.ok(src.includes("eventForStatusChange("), "admin-actions does not map the status change");
   assert.ok(src.includes("await deliverStatusEmail("), "admin-actions does not send");
-  // The patch is applied first, so the email describes the stored state.
-  assert.ok(src.indexOf("Object.assign(order, patch)") < src.indexOf("await deliverStatusEmail("), "the email is built before the patch is applied");
-  // …and the order write still happens after, regardless of the email.
-  assert.ok(src.indexOf("await deliverStatusEmail(") < src.indexOf("payment_status: order.paymentStatus"), "the order update no longer follows the email");
+  // A2-B6 / 0008 write shape: the status change is PERSISTED first by a
+  // compare-and-set transition (transition_order_data), so the email always
+  // describes the stored state and only the winning request sends it; then
+  // only that milestone's ledger entry is written (record_order_customer_email).
+  const fn = src.slice(src.indexOf("async function updateOrder"), src.indexOf("async function resendCustomerEmail"));
+  const persist = "await transitionOrder(body.orderNumber, current.version, planned.dataPatch, statuses)";
+  const ledger = "await recordOrderCustomerEmail(body.orderNumber, event, record)";
+  assert.ok(fn.indexOf(persist) > -1, "the status change is not persisted by compare-and-set");
+  assert.ok(fn.indexOf(persist) < fn.indexOf("await deliverStatusEmail("), "the email is sent before the change is stored");
+  assert.ok(fn.indexOf("await deliverStatusEmail(") < fn.indexOf(ledger), "the ledger entry is not written after sending");
+  assert.ok(!fn.includes("customerEmails: stored.customerEmails"), "the whole ledger is written back again");
 });
 
 test("checkout and the payment webhook use the same ledger", () => {

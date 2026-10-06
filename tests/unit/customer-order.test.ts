@@ -14,7 +14,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { CUSTOMER_HIDDEN_ORDER_FIELDS, toCustomerOrder } from "../../src/lib/orders.ts";
+import {
+  CUSTOMER_BADGE_KEYS,
+  CUSTOMER_CONTACT_KEYS,
+  CUSTOMER_HIDDEN_ORDER_FIELDS,
+  CUSTOMER_ORDER_ITEM_KEYS,
+  CUSTOMER_ORDER_KEYS,
+  toCustomerOrder,
+} from "../../src/lib/orders.ts";
 import type { Order } from "../../src/services/types.ts";
 
 const edgeUrl = new URL("../../supabase/functions/_shared/customer-order.ts", import.meta.url).href;
@@ -238,10 +245,118 @@ test("no customer-facing path hand-rolls its own stripping any more", () => {
 
 test("admin-actions declares paymentStatus exactly once, and still requires it", () => {
   const src = read("../../supabase/functions/admin-actions/index.ts");
-  const declarations = src.match(/^\s*paymentStatus\??: string;$/gm) ?? [];
+  // The order shape now comes from the lifecycle module; the payment status
+  // is still declared exactly once and still required there.
+  assert.equal((src.match(/^\s*paymentStatus\??: string;$/gm) ?? []).length, 0, "admin-actions re-declares the order shape (it must use LifecycleOrder)");
+  assert.ok(src.includes("as LifecycleOrder | undefined"), "admin-actions reads the order as LifecycleOrder");
+  const lifecycle = read("../../supabase/functions/_shared/order-lifecycle.ts");
+  const iface = lifecycle.slice(lifecycle.indexOf("export interface LifecycleOrder"), lifecycle.indexOf("export interface PaymentHistoryEntry"));
+  const declarations = iface.match(/^\s*paymentStatus\??: string;$/gm) ?? [];
   assert.equal(declarations.length, 1, `expected one declaration, found ${declarations.length}`);
   assert.match(declarations[0]!, /paymentStatus: string;/, "it must stay required — the column is NOT NULL");
-  // The behaviour that reads it is untouched.
-  assert.ok(src.includes('order.paymentMethod === "bank_transfer" && order.paymentStatus !== "paid"'));
-  assert.ok(src.includes("payment_status: order.paymentStatus"));
+  // A2-B3 (deliberately fixed): confirming the supplier no longer derives
+  // `payment_confirmed` from the payment METHOD — only from payment `paid`.
+  assert.ok(!src.includes('order.paymentMethod === "bank_transfer" && order.paymentStatus !== "paid"'), "the method-based B3 branch is back");
+  // Status columns are still written, now through the atomic RPC.
+  assert.ok(src.includes("p_payment_status: statuses.paymentStatus ?? null"));
+});
+
+/* ── allowlist: unknown keys never pass, UI keys always do ──────────────── */
+
+/** An order carrying internal keys nobody has thought of yet, at every level. */
+const FUTURE_LEAKY = {
+  ...JSON.parse(JSON.stringify(ORDER)),
+  idempotency: { key: "IDEM-KEY-SECRET", requestHash: "HASH-SECRET" },
+  adminAuditTrail: [{ by: "LEAK-STAFF", note: "LEAK-ORDER-NOTE" }],
+  paymentProviderPayload: { raw: "LEAK-PROVIDER-RAW" },
+  customer: { ...ORDER.customer, riskScore: "LEAK-RISK", ipAddress: "LEAK-IP" },
+  items: [
+    {
+      ...JSON.parse(JSON.stringify(ORDER.items[0])),
+      supplierSku: "LEAK-ITEM-SKU",
+      costUsd: 9999,
+      badge: { ...ORDER.items[0]!.badge, supplierCostUsd: "LEAK-BADGE-COST" },
+    },
+  ],
+};
+const FUTURE_SECRETS = [
+  "IDEM-KEY-SECRET",
+  "HASH-SECRET",
+  "LEAK-STAFF",
+  "LEAK-ORDER-NOTE",
+  "LEAK-PROVIDER-RAW",
+  "LEAK-RISK",
+  "LEAK-IP",
+  "LEAK-ITEM-SKU",
+  "9999",
+  "LEAK-BADGE-COST",
+];
+
+test("allowlist: unknown internal keys never reach the customer (app and edge)", () => {
+  for (const [name, view] of [
+    ["app", toCustomerOrder(FUTURE_LEAKY as unknown as Order)],
+    ["edge", edge.toCustomerOrderData(JSON.parse(JSON.stringify(FUTURE_LEAKY)))],
+  ] as const) {
+    const json = JSON.stringify(view);
+    for (const secret of [...FUTURE_SECRETS, ...OWNER_ONLY, "resend 401 invalid key"]) {
+      assert.ok(!json.includes(secret), `${name}: ${secret} reached the customer`);
+    }
+    const v = view as Record<string, unknown>;
+    for (const key of Object.keys(v)) assert.ok((CUSTOMER_ORDER_KEYS as readonly string[]).includes(key), `${name}: ${key} is not allowlisted`);
+  }
+});
+
+test("allowlist: every key the customer UI renders still passes", () => {
+  // Order-level keys read by ConfirmationPage, TrackOrderPage, AccountPage
+  // and customerTimeline (src/lib/orders.ts).
+  const uiOrderKeys = [
+    "orderNumber", "createdAt", "locale", "customer", "items", "subtotalIls", "promotion", "promotionDiscountIls",
+    "deliveryIls", "freeDelivery", "totalIls", "paymentMethod", "paymentStatus", "fulfillmentStatus", "tracking",
+    "estimatedDeliveryAt", "supplierConfirmation", "customerVisibleMessage", "sheetsSync", "isDemo", "id", "zoneId",
+  ];
+  const uiItemKeys = ["productId", "slug", "title", "image", "version", "size", "personalization", "badge", "price", "unitPriceIls", "quantity", "lineTotalIls"];
+  const full = {
+    ...JSON.parse(JSON.stringify(ORDER)),
+    items: [{ ...JSON.parse(JSON.stringify(ORDER.items[0])), sleeve: "long", patchId: "ucl", patchName: L("UCL") }],
+  };
+  for (const [name, view] of [
+    ["app", toCustomerOrder(full as unknown as Order) as unknown as Record<string, unknown>],
+    ["edge", edge.toCustomerOrderData(JSON.parse(JSON.stringify(full))) as Record<string, unknown>],
+  ] as const) {
+    for (const key of uiOrderKeys) assert.ok(key in view, `${name}: order.${key} was dropped`);
+    const item = (view.items as Record<string, unknown>[])[0]!;
+    for (const key of [...uiItemKeys, "sleeve", "patchId", "patchName"]) assert.ok(key in item, `${name}: item.${key} was dropped`);
+    const badge = item.badge as Record<string, unknown>;
+    for (const key of ["badgeId", "code", "name", "label", "priceIls"]) assert.ok(key in badge, `${name}: badge.${key} was dropped`);
+    assert.deepEqual(view.customer, ORDER.customer, `${name}: customer contact changed`);
+    assert.deepEqual(item.price, ORDER.items[0]!.price, `${name}: price breakdown changed`);
+  }
+});
+
+test("allowlists are identical in the app and the edge mirror", () => {
+  assert.deepEqual([...edge.CUSTOMER_ORDER_KEYS], [...CUSTOMER_ORDER_KEYS]);
+  assert.deepEqual([...edge.CUSTOMER_ORDER_ITEM_KEYS], [...CUSTOMER_ORDER_ITEM_KEYS]);
+  assert.deepEqual([...edge.CUSTOMER_CONTACT_KEYS], [...CUSTOMER_CONTACT_KEYS]);
+  assert.deepEqual([...edge.CUSTOMER_BADGE_KEYS], [...CUSTOMER_BADGE_KEYS]);
+});
+
+test("no known internal field can ever be allowlisted", () => {
+  for (const field of CUSTOMER_HIDDEN_ORDER_FIELDS) {
+    assert.ok(!(CUSTOMER_ORDER_KEYS as readonly string[]).includes(field), `${field} is allowlisted`);
+  }
+  assert.ok(!(CUSTOMER_BADGE_KEYS as readonly string[]).includes("supplierReference"));
+  for (const key of ["idempotency", "idempotencyKey", "requestHash", "contactHash"]) {
+    assert.ok(!(CUSTOMER_ORDER_KEYS as readonly string[]).includes(key), `${key} is allowlisted`);
+  }
+});
+
+test("the edge sanitizer tolerates non-object items and a missing customer", () => {
+  const out = edge.toCustomerOrderData({ orderNumber: "CR-Y", items: [null, "x", { slug: "b", secret: "LEAK" }] });
+  assert.deepEqual(out, { orderNumber: "CR-Y", items: [null, "x", { slug: "b" }] });
+});
+
+test("my-orders serves account history through the shared sanitizer", () => {
+  const src = read("../../supabase/functions/my-orders/index.ts");
+  assert.ok(src.includes('from "../_shared/customer-order.ts"'));
+  assert.ok(src.includes("rows.map((row) => toCustomerOrderData(row.data))"));
 });

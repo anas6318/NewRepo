@@ -75,18 +75,18 @@ export async function one_eligible_item_earns_no_discount({ page, BASE }) {
   const text = await cartText(page, BASE);
   assert.doesNotMatch(text, /Buy 2 promotion/, "no discount row on a single item");
   assert.match(text, /Add one more eligible item/, "but a truthful progress message");
-  assert.match(text, /170/, "the full price stands");
+  assert.match(text, /169/, "the full price stands");
 }
 
 export async function two_eligible_items_discount_the_cheaper_one({ page, BASE }) {
   await clearSales(page, BASE);
   await setPromotion(page, BASE, RUNNING);
-  // ₪170 retro + ₪140 current-season → 15% of ₪140 = ₪21.
+  // ₪169 retro + ₪149 current-season (fan) → 15% of ₪149 = ₪22.35.
   await addToCart(page, BASE, "crimson-2005");
   await addToCart(page, BASE, "onyx-home");
   const text = await cartText(page, BASE);
   assert.match(text, /Buy 2 promotion/, "the discount has its own row");
-  assert.match(text, /21/, "15% of the cheaper ₪140");
+  assert.match(text, /22\.35/, "15% of the cheaper ₪149");
   assert.match(text, /Second-item discount applied/);
 }
 
@@ -96,10 +96,10 @@ export async function four_eligible_items_create_two_discounts({ page, BASE }) {
   for (const slug of ["crimson-2005", "royal-1998", "onyx-home", "azure-national"]) {
     await addToCart(page, BASE, slug);
   }
-  // 170,170,140,140 → pairs (170,170) and (140,140) → 15% of 170 + 15% of 140.
+  // 169,169,149,149 → pairs (169,169) and (149,149) → 15% of 169 + 15% of 149.
   const text = await cartText(page, BASE);
   assert.match(text, /Buy 2 promotion/, "a discount row is present");
-  assert.match(text, /46\.5/, "₪25.50 + ₪21 = ₪46.50 across two discounted items");
+  assert.match(text, /47\.7/, "₪25.35 + ₪22.35 = ₪47.70 across two discounted items");
 }
 
 export async function quantity_two_of_one_product_qualifies({ page, BASE }) {
@@ -108,19 +108,19 @@ export async function quantity_two_of_one_product_qualifies({ page, BASE }) {
   await addToCart(page, BASE, "crimson-2005", { quantity: 2 });
   const text = await cartText(page, BASE);
   assert.match(text, /Buy 2 promotion/, "units count, not lines");
-  assert.match(text, /25\.5/, "15% of ₪170");
+  assert.match(text, /25\.35/, "15% of ₪169");
 }
 
 export async function the_badge_charge_is_never_discounted({ page, BASE }) {
   await clearSales(page, BASE);
   await setPromotion(page, BASE, RUNNING);
-  // crimson-2005 ₪170 + Champions League badge ₪12 → merchandise stays ₪170.
+  // crimson-2005 ₪169 + Champions League badge ₪12 → merchandise stays ₪169.
   await addToCart(page, BASE, "crimson-2005", { badge: /^Champions League badge/ });
   await addToCart(page, BASE, "onyx-home");
   const text = await cartText(page, BASE);
-  // Cheaper merchandise is onyx-home at ₪140 → ₪21, not 15% of ₪182.
-  assert.match(text, /21/, "the discount is 15% of merchandise only");
-  assert.doesNotMatch(text, /27\.3/, "never 15% of the badge-inclusive ₪182");
+  // Cheaper merchandise is onyx-home at ₪149 → ₪22.35, not 15% of ₪181.
+  assert.match(text, /22\.35/, "the discount is 15% of merchandise only");
+  assert.doesNotMatch(text, /27\.15/, "never 15% of the badge-inclusive ₪181");
 }
 
 export async function excluded_products_do_not_count({ page, BASE }) {
@@ -149,9 +149,9 @@ export async function a_product_on_sale_is_not_also_promoted_by_default({ page, 
   await addToCart(page, BASE, "crimson-2005");
   await addToCart(page, BASE, "onyx-home");
   const text = await cartText(page, BASE);
-  // The sale item is skipped, so the promotion moves to the ₪170 shirt.
-  assert.match(text, /25\.5/, "15% of ₪170 — the un-discounted unit");
-  assert.doesNotMatch(text, /16\.8/, "never 15% of the already-reduced ₪112");
+  // The sale item is skipped, so the promotion moves to the ₪169 shirt.
+  assert.match(text, /25\.35/, "15% of ₪169 — the un-discounted unit");
+  assert.doesNotMatch(text, /17\.88/, "never 15% of the already-reduced ₪119.20");
 }
 
 export async function stacking_can_be_enabled_deliberately({ page, BASE }) {
@@ -169,7 +169,7 @@ export async function stacking_can_be_enabled_deliberately({ page, BASE }) {
   await addToCart(page, BASE, "crimson-2005");
   await addToCart(page, BASE, "onyx-home");
   const text = await cartText(page, BASE);
-  assert.match(text, /16\.8/, "15% of the already-reduced ₪112 when stacking is on");
+  assert.match(text, /17\.88/, "15% of the already-reduced ₪119.20 when stacking is on");
 }
 
 export async function a_disabled_or_scheduled_campaign_shows_nothing({ page, BASE }) {
@@ -218,7 +218,7 @@ export async function the_product_page_never_claims_the_single_item_is_reduced({
   const panel = (await page.locator(".product-panel").textContent()) ?? "";
   assert.match(panel, /Buy 2, get 15% off the second item/, "the campaign is named");
   assert.equal(await page.locator(".product-price .price__compare").count(), 0, "no crossed-out price on a single item");
-  assert.match((await page.locator("#buy-actions .price").first().textContent()) ?? "", /170/, "full price until the cart qualifies");
+  assert.match((await page.locator("#buy-actions .price").first().textContent()) ?? "", /169/, "full price until the cart qualifies");
 }
 
 export async function promotion_rows_are_readable_at_every_width({ BASE, newPage }) {
@@ -286,29 +286,29 @@ export async function the_order_stores_an_immutable_promotion_snapshot({ page, B
   assert.equal(p.stackWithProductSales, false);
   assert.equal(p.eligibleUnits, 2);
   assert.equal(p.discountedUnits, 1);
-  assert.equal(p.discountIls, 21, "15% of the cheaper ₪140");
-  assert.equal(p.originalMerchandiseIls, 310);
-  assert.equal(p.finalMerchandiseIls, 289);
+  assert.equal(p.discountIls, 22.35, "15% of the cheaper ₪149");
+  assert.equal(p.originalMerchandiseIls, 318);
+  assert.equal(p.finalMerchandiseIls, 295.65);
   assert.equal(p.labelText, "Buy 2, get 15% off the second item");
   assert.equal(p.items.length, 1);
-  assert.equal(p.items[0].unitMerchandiseIls, 140, "the discounted unit is identified");
-  assert.equal(order.promotionDiscountIls, 21);
-  assert.equal(order.totalIls, order.subtotalIls - 21 + order.deliveryIls, "the discount reduces merchandise, not delivery");
+  assert.equal(p.items[0].unitMerchandiseIls, 149, "the discounted unit is identified");
+  assert.equal(order.promotionDiscountIls, 22.35);
+  assert.equal(order.totalIls, order.subtotalIls - 22.35 + order.deliveryIls, "the discount reduces merchandise, not delivery");
 
   // The confirmation page shows the same figures.
   const confirmation = (await page.locator("main").textContent()) ?? "";
   assert.match(confirmation, /Buy 2, get 15% off the second item/);
-  assert.match(confirmation, /21/);
+  assert.match(confirmation, /22\.35/);
 
   // The owner now deepens the campaign, then switches it off entirely.
   await setPromotion(page, BASE, { ...RUNNING, discountPercent: 50 });
   let after = await readOrder(page, orderNumber);
-  assert.equal(after.promotion.discountIls, 21, "the placed order does not move");
+  assert.equal(after.promotion.discountIls, 22.35, "the placed order does not move");
   assert.equal(after.promotion.discountPercent, 15);
 
   await setPromotion(page, BASE, { enabled: false });
   after = await readOrder(page, orderNumber);
-  assert.equal(after.promotion.discountIls, 21, "and it survives the campaign being disabled");
+  assert.equal(after.promotion.discountIls, 22.35, "and it survives the campaign being disabled");
   assert.equal(after.totalIls, order.totalIls);
 }
 
@@ -333,9 +333,9 @@ export async function order_creation_ignores_a_forged_browser_discount({ page, B
   const orderNumber = await placeOrder(page, BASE, "forge-promo@example.com");
   const order = await readOrder(page, orderNumber);
   assert.equal(order.promotion.discountPercent, 15, "the configured 15%, not the submitted 90%");
-  assert.equal(order.promotion.discountIls, 21, "not the submitted ₪999");
-  assert.equal(order.subtotalIls, 310, "line prices were recomputed too");
-  assert.equal(order.totalIls, 310 - 21 + order.deliveryIls);
+  assert.equal(order.promotion.discountIls, 22.35, "not the submitted ₪999");
+  assert.equal(order.subtotalIls, 318, "line prices were recomputed too");
+  assert.equal(order.totalIls, 318 - 22.35 + order.deliveryIls);
 }
 
 export async function a_disabled_campaign_produces_no_order_promotion({ page, BASE }) {

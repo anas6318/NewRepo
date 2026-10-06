@@ -146,3 +146,136 @@ export async function admin_club_select_puts_product_on_club_shop_page({ page, B
   await page.waitForTimeout(500);
   assert.equal(await page.locator(".prod-card", { hasText: "E2E Club Shirt" }).count(), 0, "not listed under another club");
 }
+
+/* ── order lifecycle (F3: A2-B3, A2-B5, A2-B13, transition matrix) ───────── */
+
+const LS_KEY = "crowned_demo_db_v1";
+
+const readOrder = (page, orderNumber) =>
+  page.evaluate(([key, n]) => JSON.parse(window.localStorage.getItem(key)).orders.find((o) => o.orderNumber === n), [LS_KEY, orderNumber]);
+
+/** Places a bank-transfer order for a product whose availability needs a
+ * supplier check, so the order is HELD (awaiting_supplier_confirmation). */
+async function ensureDemoDbPersisted(page, BASE) {
+  await page.goto(`${BASE}/en`, { waitUntil: "networkidle" });
+  if (await page.evaluate((k) => window.localStorage.getItem(k) !== null, LS_KEY)) return;
+  await page.fill("#footer-email", `seed-${Date.now()}@example.com`);
+  await page.locator(".site-footer__form button[type=submit]").click();
+  await page.waitForFunction((k) => window.localStorage.getItem(k) !== null, LS_KEY, { timeout: 5000 });
+}
+
+async function placeHeldOrder(page, BASE, email) {
+  await ensureDemoDbPersisted(page, BASE);
+  await page.evaluate((key) => {
+    const db = JSON.parse(window.localStorage.getItem(key));
+    const product = db.products.find((x) => x.slug === "onyx-home");
+    Object.assign(product, { availability: { status: "confirmation_required" }, sizeAvailability: {} });
+    window.localStorage.setItem(key, JSON.stringify(db));
+  }, LS_KEY);
+  await page.goto(`${BASE}/en/product/onyx-home`, { waitUntil: "networkidle" });
+  const versionChips = page.locator("fieldset", { hasText: /version/i }).first().locator(".chip");
+  if (await versionChips.count()) await versionChips.first().click();
+  await page.locator("fieldset .chip", { hasText: /^L$/ }).first().click();
+  await page.getByText(/checked the size chart|size chart before/i).first().click();
+  await page.getByRole("button", { name: /Add to Cart/i }).click();
+  await page.waitForTimeout(300);
+  await page.goto(`${BASE}/en/checkout`, { waitUntil: "networkidle" });
+  await page.fill("#co-name", "Lifecycle Tester");
+  await page.fill("#co-email", email);
+  await page.fill("#co-phone", "0501234567");
+  await page.selectOption("#co-zone", "center");
+  await page.fill("#co-city", "Haifa");
+  await page.fill("#co-address", "Test street 1");
+  await page.locator(".pay-option input").first().check();
+  await page.locator(".check", { hasText: /policy/i }).first().click();
+  await page.getByRole("button", { name: /Place order/i }).click();
+  await page.waitForURL(/confirmation\/CR-/, { timeout: 8000 });
+  const orderNumber = page.url().match(/CR-[A-Z0-9]+/)?.[0] ?? "";
+  const order = await readOrder(page, orderNumber);
+  assert.equal(order.fulfillmentStatus, "awaiting_supplier_confirmation", "precondition: the order is held");
+  assert.equal(order.paymentMethod, "bank_transfer");
+  return orderNumber;
+}
+
+const paymentSelect = (page) => page.locator("label", { hasText: "Payment status" }).locator("select");
+const fulfillmentSelect = (page) => page.locator("label", { hasText: "Fulfillment status" }).locator("select");
+
+export async function confirming_supplier_on_unpaid_held_order_requests_payment_and_never_confirms_it({ page, BASE }) {
+  const orderNumber = await placeHeldOrder(page, BASE, "lifecycle-b3@example.com");
+  await adminLogin(page, BASE);
+  await page.goto(`${BASE}/admin/orders/${orderNumber}`, { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Confirm supplier availability" }).click();
+  await page.waitForTimeout(600);
+
+  const order = await readOrder(page, orderNumber);
+  assert.equal(order.supplierConfirmation.status, "confirmed");
+  assert.equal(order.fulfillmentStatus, "awaiting_payment", "an unpaid order waits for payment after confirmation");
+  assert.equal(order.paymentStatus, "awaiting_payment", "no payment was invented");
+  assert.ok(order.customerEmails.supplier_confirmed, "the 'availability confirmed — you can pay now' email was not recorded (B5)");
+  assert.equal(order.customerEmails.payment_confirmed, undefined, "a payment-confirmed email was recorded for an unpaid order (B3)");
+  assert.deepEqual(Object.keys(order.customerEmails).sort(), ["order_received", "supplier_confirmed"]);
+  assert.equal(order.tracking.at(-1).status, "awaiting_payment");
+}
+
+export async function paid_while_held_keeps_the_hold_and_sends_no_payment_email({ page, BASE }) {
+  const orderNumber = await placeHeldOrder(page, BASE, "lifecycle-b13@example.com");
+  await adminLogin(page, BASE);
+  await page.goto(`${BASE}/admin/orders/${orderNumber}`, { waitUntil: "networkidle" });
+  await paymentSelect(page).selectOption("paid");
+  await page.waitForTimeout(600);
+
+  let order = await readOrder(page, orderNumber);
+  assert.equal(order.paymentStatus, "paid", "the payment is recorded");
+  assert.equal(order.fulfillmentStatus, "awaiting_supplier_confirmation", "fulfillment stays held (B13)");
+  assert.equal(order.customerEmails.payment_confirmed, undefined, "no 'moving to preparation' email while held (B13)");
+  assert.equal(order.paymentHistory?.at(-1)?.to, "paid", "the payment change is on record");
+
+  // The supplier confirmation is what releases it — with ONE payment-confirmed email.
+  await page.goto(`${BASE}/admin/orders/${orderNumber}`, { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Confirm supplier availability" }).click();
+  await page.waitForTimeout(600);
+  order = await readOrder(page, orderNumber);
+  assert.equal(order.fulfillmentStatus, "payment_confirmed");
+  assert.equal(order.customerEmails.payment_confirmed?.attempts, 1);
+  assert.equal(order.customerEmails.supplier_confirmed, undefined, "a paid order is not asked to pay");
+}
+
+export async function refused_transition_is_surfaced_in_admin({ page, BASE }) {
+  await ensureDemoDbPersisted(page, BASE);
+  await adminLogin(page, BASE);
+  // CR-DEMO03: bank transfer, awaiting payment — nothing may be produced yet.
+  await page.goto(`${BASE}/admin/orders/CR-DEMO03`, { waitUntil: "networkidle" });
+  await page.waitForSelector(".timeline li");
+  const before = await page.locator(".timeline li").count();
+  await fulfillmentSelect(page).selectOption("sent_to_supplier");
+  const toast = page.locator(".toast--error").first();
+  await toast.waitFor({ state: "visible", timeout: 5000 });
+  const text = await toast.innerText();
+  assert.match(text, /not allowed/i, `the refusal is explained: ${text}`);
+  assert.match(text, /payment must be marked paid first/i, `the reason is given: ${text}`);
+  await page.waitForTimeout(300);
+  const order = await readOrder(page, "CR-DEMO03");
+  assert.equal(order.fulfillmentStatus, "awaiting_payment", "the refused status was not stored");
+  assert.equal(await fulfillmentSelect(page).inputValue(), "awaiting_payment", "the select shows the stored state");
+  assert.equal(await page.locator(".timeline li").count(), before, "no timeline entry for a refused change");
+}
+
+export async function delivered_before_shipped_is_refused({ page, BASE }) {
+  await ensureDemoDbPersisted(page, BASE);
+  await adminLogin(page, BASE);
+  await page.goto(`${BASE}/admin/orders/CR-DEMO03`, { waitUntil: "networkidle" });
+  await paymentSelect(page).selectOption("paid");
+  await page.waitForTimeout(600);
+  let order = await readOrder(page, "CR-DEMO03");
+  assert.equal(order.fulfillmentStatus, "payment_confirmed", "marking paid advances the unheld order");
+
+  await page.goto(`${BASE}/admin/orders/CR-DEMO03`, { waitUntil: "networkidle" });
+  await fulfillmentSelect(page).selectOption("delivered");
+  const toast = page.locator(".toast--error").first();
+  await toast.waitFor({ state: "visible", timeout: 5000 });
+  assert.match(await toast.innerText(), /payment_confirmed → delivered/);
+  await page.waitForTimeout(300);
+  order = await readOrder(page, "CR-DEMO03");
+  assert.equal(order.fulfillmentStatus, "payment_confirmed", "delivered was not stored");
+  assert.equal(order.customerEmails?.delivered, undefined, "no delivered email for a refused change");
+}

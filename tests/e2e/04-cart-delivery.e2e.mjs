@@ -56,7 +56,7 @@ export async function checkout_charges_delivery_under_threshold({ page, BASE }) 
   await page.waitForTimeout(300);
   const summary = await page.locator(".checkout-summary").textContent();
   assert.ok(summary?.includes("₪35"), `zone fee ₪35 shown: ${summary?.slice(0, 200)}`);
-  assert.ok(summary?.includes("₪205"), "total = 170 + 35");
+  assert.ok(summary?.includes("₪204"), "total = 169 + 35");
 }
 
 export async function checkout_free_delivery_at_threshold({ page, BASE }) {
@@ -69,5 +69,5 @@ export async function checkout_free_delivery_at_threshold({ page, BASE }) {
   await page.waitForTimeout(300);
   const summary = await page.locator(".checkout-summary").textContent();
   assert.ok(summary?.includes("Free"), "delivery shows Free");
-  assert.ok(summary?.includes("₪510"), "total = 3×170 + 0");
+  assert.ok(summary?.includes("₪507"), "total = 3×169 + 0");
 }

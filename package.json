@@ -12,6 +12,9 @@
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "test:e2e": "node tests/e2e/run-e2e.mjs",
+    "local:seed": "node scripts/local-staging/seed-local.mjs",
+    "local:build": "node scripts/local-staging/build-local.mjs",
+    "test:integration:local": "node --test --test-concurrency=1 tests/integration/local-supabase/*.test.mjs",
     "smoke:email": "node scripts/smoke-email.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "prerender": "node scripts/prerender.mjs",
@@ -34,6 +37,7 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "playwright": "^1.49.0",
     "sharp": "^0.33.5",
+    "supabase": "2.119.0",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.15.0",
     "vite": "^6.0.3"

@@ -1,14 +1,20 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "../../lib/router.tsx";
 import { useI18n } from "../../lib/i18n/index.tsx";
 import { usePageMeta } from "../../lib/seo.tsx";
+import { dataService } from "../../services/index.ts";
 import { useCart } from "../../services/store.tsx";
 import { track } from "../../lib/analytics.ts";
 import { FreeDeliveryProgress } from "../../components/product/FreeDeliveryProgress.tsx";
 import { EmptyState, Price, useL } from "../../components/ui/bits.tsx";
 import { IconBag, IconMinus, IconPlus, IconTrash } from "../../components/ui/Icons.tsx";
 import { formatBadgeAdjustment } from "../../lib/badges.ts";
+import { MAX_LINE_QUANTITY } from "../../lib/pricing.ts";
 import { PromotionLine, PromotionProgress } from "../../components/cart/PromotionSummary.tsx";
 import { SafeImage } from "../../components/ui/SafeImage.tsx";
+import type { Product } from "../../services/types.ts";
+// A1-B6: shares the same "stale cart line" definition Checkout uses.
+import { staleCartLineReason } from "./CheckoutPage.tsx";
 
 export function CartPage() {
   const { locale, t } = useI18n();
@@ -16,6 +22,31 @@ export function CartPage() {
   const L = useL();
 
   usePageMeta({ title: t("cart.title"), path: "/cart", locale, noindex: true });
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const cartSignature = cart.lines.map((l) => `${l.slug}|${l.version ?? ""}|${l.size}`).join(",");
+  useEffect(() => {
+    let alive = true;
+    if (cart.lines.length === 0) return;
+    dataService()
+      .listProducts()
+      .then((list) => {
+        if (alive) setProducts(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartSignature]);
+  const staleLineKeys = useMemo(() => {
+    if (products.length === 0) return new Set<string>();
+    const keys = new Set<string>();
+    for (const line of cart.lines) {
+      if (staleCartLineReason(line, products)) keys.add(line.key);
+    }
+    return keys;
+  }, [cart.lines, products]);
 
   if (cart.lines.length === 0) {
     return (
@@ -63,13 +94,28 @@ export function CartPage() {
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
+                  {staleLineKeys.has(line.key) && (
+                    <p className="field__error" role="alert">
+                      {t("checkout.staleLineWarning")}
+                    </p>
+                  )}
                   <div className="row row--between mt-2 row--wrap">
                     <div className="qty">
-                      <button type="button" aria-label="−" onClick={() => cart.updateQty(line.key, line.quantity - 1)}>
+                      <button
+                        type="button"
+                        aria-label="−"
+                        disabled={line.quantity <= 1}
+                        onClick={() => cart.updateQty(line.key, line.quantity - 1)}
+                      >
                         <IconMinus size={14} />
                       </button>
                       <span aria-live="polite">{line.quantity}</span>
-                      <button type="button" aria-label="+" onClick={() => cart.updateQty(line.key, line.quantity + 1)}>
+                      <button
+                        type="button"
+                        aria-label="+"
+                        disabled={line.quantity >= MAX_LINE_QUANTITY}
+                        onClick={() => cart.updateQty(line.key, line.quantity + 1)}
+                      >
                         <IconPlus size={14} />
                       </button>
                     </div>

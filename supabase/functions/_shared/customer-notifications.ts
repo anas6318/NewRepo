@@ -34,6 +34,9 @@ export type { CustomerEmailEvent };
 /** Every milestone the customer is told about, in lifecycle order. */
 export const CUSTOMER_EMAIL_EVENTS: CustomerEmailEvent[] = [
   "order_received",
+  // Not mapped from any status below: emitted only by the order lifecycle
+  // (_shared/order-lifecycle.ts) when the supplier confirms a held, unpaid order.
+  "supplier_confirmed",
   "payment_confirmed",
   "processing",
   "shipped",
@@ -104,7 +107,35 @@ export interface CustomerOrderView {
   totalIls?: number;
   trackingNumber?: string;
   trackingUrl?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  fulfillmentStatus?: string;
+  supplierConfirmation?: { required?: boolean; status?: string };
   customerEmails?: CustomerEmailLog;
+}
+
+/**
+ * Held for an unanswered supplier check. Such an order is never asked to pay
+ * (A2-B5): its "order received" email is the held variant, and bank-transfer
+ * instructions are withheld whatever the caller passes.
+ */
+export function isAwaitingSupplier(order: CustomerOrderView): boolean {
+  return (
+    order.fulfillmentStatus === "awaiting_supplier_confirmation" ||
+    (order.supplierConfirmation?.required === true && order.supplierConfirmation.status === "pending")
+  );
+}
+
+/**
+ * Whether bank-transfer instructions belong in this milestone's email: only
+ * for bank-transfer orders that are not held and not already paid, and only
+ * on the two milestones that ask for payment.
+ */
+export function bankInstructionsDue(order: CustomerOrderView, event: CustomerEmailEvent): boolean {
+  if (event !== "order_received" && event !== "supplier_confirmed") return false;
+  if (order.paymentMethod !== "bank_transfer") return false;
+  if (isAwaitingSupplier(order)) return false;
+  return !["paid", "partially_refunded", "refunded", "cancelled"].includes(order.paymentStatus ?? "");
 }
 
 export interface CustomerEmailConfig extends EmailProviderConfig {
@@ -195,10 +226,12 @@ export async function sendCustomerStatusEmail(
       return { status: "failed", at, attempts, ...(to ? { to } : {}), error: `no usable customer email address (${to ? "invalid" : "missing"})` };
     }
 
+    const held = event === "order_received" && isAwaitingSupplier(order);
     const built = statusUpdateEmail(localeOf(order), event, {
       orderNumber: order.orderNumber ?? "",
       ...(typeof order.totalIls === "number" ? { totalIls: order.totalIls } : {}),
-      ...(deps.bankInstructions ? { bankInstructions: deps.bankInstructions } : {}),
+      // Never ask a held order to pay, whatever the caller passed (A2-B5).
+      ...(held ? { awaitingSupplier: true } : deps.bankInstructions && !isAwaitingSupplier(order) ? { bankInstructions: deps.bankInstructions } : {}),
       // Carrier details only when the owner has actually entered them.
       ...(order.trackingNumber ? { trackingNumber: order.trackingNumber } : {}),
       ...(order.trackingUrl ? { trackingUrl: order.trackingUrl } : {}),

@@ -9,7 +9,8 @@
  * save-settings, dashboard, list-badges, save-badges, list-promotions,
  * save-promotions.
  */
-import { audit, dbInsert, dbSelect, dbUpdate, dbUpsert, db, handleError, HttpError, json, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
+import { audit, dbInsert, dbRpc, dbSelect, dbUpdate, dbUpsert, db, handleError, HttpError, json, preflight, requireAdminOrOwner, requireStaff } from "../_shared/helpers.ts";
+import { auditDetail, canManagePricing, canUpdateOrders, planOrderUpdate, type LifecycleOrder, type UpdateOrderPlan } from "../_shared/order-lifecycle.ts";
 import { productImageUrlProblems } from "../_shared/image-url.ts";
 import { normalizeProductTags, parseImportedClub } from "../_shared/clubs.ts";
 import {
@@ -24,13 +25,14 @@ import {
 } from "../_shared/zones.ts";
 import {
   alreadySent,
+  bankInstructionsDue,
   CUSTOMER_EMAIL_EVENTS,
   deliverStatusEmail,
   eventForStatusChange,
   readCustomerEmailConfig,
-  recordCustomerEmail,
   sendCustomerStatusEmail,
   type CustomerEmailEvent,
+  type CustomerEmailRecord,
 } from "../_shared/customer-notifications.ts";
 
 Deno.serve(async (req) => {
@@ -117,6 +119,8 @@ async function listPromotions(req: Request): Promise<Response> {
 
 async function savePromotions(req: Request, body: { promotions: PromotionRow[] }): Promise<Response> {
   const staff = await requireStaff(req);
+  // A promotion is a pricing decision (a 100% campaign is free stock): owner/admin only (A2-S4).
+  if (!canManagePricing(staff.role)) throw new HttpError(403, "forbidden");
   const promotions = body.promotions ?? [];
   if (promotions.length > 50) throw new HttpError(400, "too_many_promotions");
 
@@ -176,6 +180,8 @@ async function listBadges(req: Request): Promise<Response> {
 
 async function saveBadges(req: Request, body: { badges: BadgeOption[] }): Promise<Response> {
   const staff = await requireStaff(req);
+  // Badge prices are charged at checkout: owner/admin only (A2-S4).
+  if (!canManagePricing(staff.role)) throw new HttpError(403, "forbidden");
   const badges = body.badges ?? [];
   if (badges.length > 200) throw new HttpError(400, "too_many_badges");
 
@@ -373,87 +379,160 @@ function parseImportedBadges(row: Record<string, string>, byCode: Map<string, st
   return { settings, errors };
 }
 
+/* ── compare-and-set order writes (migration 0008) ─────────────────────────
+   An order update is decided from a snapshot (lifecycle checks, the email
+   decision, the appended paymentHistory / tracking arrays). The write below
+   lands only if the row still has the version that snapshot was read at
+   (`transition_order_data`: ONE conditional UPDATE), so of N concurrent
+   identical requests exactly one wins and only the winner emails, audits
+   and queues a Sheets row. Losers re-read and re-plan (bounded). */
+
+/** Attempts per request before giving up with 409 `concurrent_update`. */
+const MAX_TRANSITION_ATTEMPTS = 3;
+
+interface VersionedOrder {
+  order: Record<string, unknown>;
+  version: number;
+}
+
+type TransitionResult = { applied: true; data: Record<string, unknown>; version: number } | { applied: false; version: number | null };
+
+async function readVersionedOrder(orderNumber: string): Promise<VersionedOrder | null> {
+  const rows = await dbSelect<{ data: Record<string, unknown>; version: number }>(
+    `orders?select=data,version&order_number=eq.${encodeURIComponent(orderNumber)}`,
+  );
+  const row = rows[0];
+  return row?.data ? { order: row.data, version: Number(row.version) } : null;
+}
+
+/** Merge `patch` (top-level keys) + optional status columns iff the row is
+ * still at `expectedVersion`. Never a read-then-write. */
+async function transitionOrder(
+  orderNumber: string,
+  expectedVersion: number,
+  patch: Record<string, unknown>,
+  statuses: { paymentStatus?: string; fulfillmentStatus?: string } = {},
+): Promise<TransitionResult> {
+  return await dbRpc<TransitionResult>("transition_order_data", {
+    p_order_number: orderNumber,
+    p_expected_version: expectedVersion,
+    p_patch: patch,
+    p_payment_status: statuses.paymentStatus ?? null,
+    p_fulfillment_status: statuses.fulfillmentStatus ?? null,
+  });
+}
+
+/** Records ONE milestone in the ledger (`data.customerEmails.<event>` only,
+ * server-side) and returns the stored data, or null when no order matched. */
+async function recordOrderCustomerEmail(orderNumber: string, event: CustomerEmailEvent, record: CustomerEmailRecord): Promise<Record<string, unknown> | null> {
+  return await dbRpc<Record<string, unknown> | null>("record_order_customer_email", {
+    p_order_number: orderNumber,
+    p_event: event,
+    p_record: record,
+  });
+}
+
+/** Bank-transfer instructions for the order's language, when this milestone should carry them. */
+async function bankInstructionsFor(order: Record<string, unknown>, event: CustomerEmailEvent): Promise<string | undefined> {
+  if (!bankInstructionsDue(order, event)) return undefined;
+  const rows = await dbSelect<{ data: { bankTransferInstructions?: Record<string, string> } }>("store_settings?select=data&id=eq.main");
+  const locale = order.locale === "he" || order.locale === "en" ? order.locale : "ar";
+  return rows[0]?.data?.bankTransferInstructions?.[locale] || undefined;
+}
+
 async function updateOrder(req: Request, body: { orderNumber: string; patch: Record<string, unknown> }): Promise<Response> {
   const staff = await requireStaff(req);
-  const rows = await dbSelect<{ data: Record<string, unknown> }>(`orders?select=data&order_number=eq.${encodeURIComponent(body.orderNumber)}`);
-  const order = rows[0]?.data as
-    | {
-        paymentStatus: string;
-        fulfillmentStatus: string;
-        tracking: { status: string; at: string }[];
-        locale: "ar" | "he" | "en";
-        customer: { email: string };
-        trackingNumber?: string;
-        productionStartedAt?: string;
-        supplierDispatchedAt?: string;
-        paymentMethod?: string;
-        supplierConfirmation?: { required: boolean; status: string; decidedBy?: string; decidedAt?: string; note?: string };
-      }
-    | undefined;
-  if (!order) return json({ ok: false }, 404);
+  // content_manager (and any non-order role) cannot touch orders at all (A2-S4).
+  if (!canUpdateOrders(staff.role)) throw new HttpError(403, "forbidden");
+  if (typeof body.orderNumber !== "string" || !body.orderNumber) throw new HttpError(400, "order_number_required");
 
-  const patch = body.patch ?? {};
-  const now = new Date().toISOString();
-  // Captured before anything mutates `order`, so "did this actually change?"
-  // stays answerable after the patch is applied.
-  const previousFulfillment = order.fulfillmentStatus;
-  const previousPayment = order.paymentStatus;
+  let plan: UpdateOrderPlan | undefined;
+  let stored: Record<string, unknown> | undefined;
+  for (let attempt = 1; !stored; attempt++) {
+    const current = await readVersionedOrder(body.orderNumber);
+    const order = current?.order as LifecycleOrder | undefined;
+    if (!current || !order) return json({ ok: false }, 404);
 
-  // Supplier-availability decision. Recorded with who/when; a rejection
-  // never advances the order into production, and a confirmation only moves
-  // it to the next legitimate stage.
-  const decision = patch.supplierConfirmation as { status?: string } | undefined;
-  if (decision?.status && decision.status !== order.supplierConfirmation?.status) {
-    patch.supplierConfirmation = { ...order.supplierConfirmation, ...decision, decidedBy: staff.email, decidedAt: now };
-    if (decision.status === "confirmed" && !patch.fulfillmentStatus) {
-      patch.fulfillmentStatus = order.paymentMethod === "bank_transfer" && order.paymentStatus !== "paid" ? "awaiting_payment" : "payment_confirmed";
+    // Allowlist, enum + transition matrix, role gates, implied changes and
+    // the email decision all live in the pure module (_shared/order-lifecycle.ts).
+    // A loser of a race re-plans here against the winner's committed state.
+    const now = new Date().toISOString();
+    const planned = planOrderUpdate(order, body.patch, { email: staff.email, role: staff.role }, now);
+    if (!planned.ok) throw new HttpError(planned.status, planned.error, planned.detail);
+    // Idempotent: the requested state is already stored (a re-save, or a
+    // concurrent request just applied it) — writes nothing, emails nobody,
+    // audits nothing.
+    if (planned.noop) return json({ ok: true, order: current.order, alreadyApplied: true });
+
+    // 1 · persist the change first (compare-and-set), so no email ever
+    //     describes an unsaved state and only one concurrent request wins.
+    const statuses = {
+      ...(planned.paymentStatus ? { paymentStatus: planned.paymentStatus } : {}),
+      ...(planned.fulfillmentStatus ? { fulfillmentStatus: planned.fulfillmentStatus } : {}),
+    };
+    const result = await transitionOrder(body.orderNumber, current.version, planned.dataPatch, statuses);
+    if (result.applied) {
+      plan = planned;
+      stored = result.data;
+    } else if (result.version === null) {
+      return json({ ok: false }, 404);
+    } else if (attempt >= MAX_TRANSITION_ATTEMPTS) {
+      throw new HttpError(409, "concurrent_update");
     }
-    if (decision.status === "rejected" && !patch.fulfillmentStatus) patch.fulfillmentStatus = "supplier_unavailable";
-    await audit(staff.email, `supplier_${decision.status}`, body.orderNumber);
   }
-  const nextFulfillment = patch.fulfillmentStatus as string | undefined;
-  const nextPayment = patch.paymentStatus as string | undefined;
-  if (nextFulfillment && nextFulfillment !== order.fulfillmentStatus) {
-    order.tracking.push({ status: nextFulfillment, at: now });
-    if (nextFulfillment === "production_started") order.productionStartedAt = now;
-    if (nextFulfillment === "supplier_dispatched") order.supplierDispatchedAt = now;
-  }
+  if (!plan) throw new Error("updateOrder: transition applied without a plan");
 
-  // Apply the patch BEFORE emailing, so the message is built from the order
-  // as it will be stored — a tracking number entered in the same save is in
-  // the shipped email, and the customer never gets a mail describing a state
-  // that was not persisted.
-  Object.assign(order, patch);
+  // Everything below runs ONLY for the request whose transition applied.
+  if (plan.supplierDecision) await audit(staff.email, `supplier_${plan.supplierDecision}`, body.orderNumber);
 
-  /* ── customer status email ──────────────────────────────────────────────
-     Changing a status in Admin is the trigger. One milestone gets at most
-     one email ever (`deliverStatusEmail` checks the order's own ledger), a
-     failure is recorded instead of thrown, and nothing here can stop the
-     order update below from being written. */
-  const statusChanged =
-    (nextFulfillment && nextFulfillment !== previousFulfillment) || (nextPayment && nextPayment !== previousPayment);
-  if (statusChanged) {
+  /* ── 2 · customer status email ─────────────────────────────────────────
+     One milestone gets at most one email ever (`deliverStatusEmail` checks
+     the order's own ledger); a failure is recorded, never thrown. Only
+     `customerEmails.<event>` is written back, server-side. */
+  const event = plan.specialEmail ?? eventForStatusChange(plan.emailChange);
+  if (event) {
     try {
-      const event = eventForStatusChange({
-        ...(nextFulfillment && nextFulfillment !== previousFulfillment ? { fulfillmentStatus: nextFulfillment } : {}),
-        ...(nextPayment && nextPayment !== previousPayment ? { paymentStatus: nextPayment } : {}),
-      });
-      await deliverStatusEmail(order as unknown as Record<string, unknown>, event);
+      const bankInstructions = await bankInstructionsFor(stored, event);
+      const record = await deliverStatusEmail(stored, event, undefined, bankInstructions ? { bankInstructions } : {});
+      if (record) stored = (await recordOrderCustomerEmail(body.orderNumber, event, record)) ?? stored;
     } catch (e) {
-      // Belt and braces: the sender does not throw, but an order update must
-      // never fail because of an email.
-      console.error("[admin-actions] customer status email failed:", e);
+      // An order update must never fail because of an email.
+      console.error("[admin-actions] customer status email failed:", e instanceof Error ? e.message : "unknown");
     }
   }
 
-  await dbUpdate(`orders?order_number=eq.${encodeURIComponent(body.orderNumber)}`, {
-    payment_status: order.paymentStatus,
-    fulfillment_status: order.fulfillmentStatus,
-    data: order,
-  });
   await dbInsert("sheets_sync_log", { order_number: body.orderNumber, status: "pending" });
-  await audit(staff.email, "order_updated", body.orderNumber, Object.keys(patch).join(","));
-  return json({ ok: true, order });
+  await audit(staff.email, "order_updated", body.orderNumber, auditDetail(plan.changes));
+  return json({ ok: true, order: stored });
+}
+
+/** A resend of one milestone is claimed on the order before sending, and a
+ * claim blocks further resends of that milestone for this long (double-click,
+ * two tabs, two staff) … */
+const RESEND_COOLDOWN_MS = 30_000;
+/** … and, while its outcome has not been recorded, for up to this long (a
+ * claim whose sender died is abandoned after it). */
+const RESEND_CLAIM_TTL_MS = 120_000;
+
+interface ResendClaim {
+  at: string;
+  by: string;
+  /** Ledger attempts for the milestone when the claim was taken. */
+  attempts: number;
+}
+
+/** Why a resend of `event` must not start now, or null when it may. */
+function resendBlocked(order: Record<string, unknown>, event: CustomerEmailEvent, nowMs: number): string | null {
+  const claims = (order.customerEmailResends ?? {}) as Record<string, ResendClaim | undefined>;
+  const claim = claims[event];
+  if (!claim) return null;
+  const age = nowMs - Date.parse(claim.at);
+  if (!Number.isFinite(age)) return null;
+  if (age >= 0 && age < RESEND_COOLDOWN_MS) return "That email was just re-sent — wait a moment before trying again.";
+  const ledger = (order.customerEmails ?? {}) as Record<string, { attempts?: number } | undefined>;
+  const resolved = (ledger[event]?.attempts ?? 0) > claim.attempts;
+  if (!resolved && age >= 0 && age < RESEND_CLAIM_TTL_MS) return "A resend of that email is already in progress.";
+  return null;
 }
 
 /**
@@ -461,22 +540,38 @@ async function updateOrder(req: Request, body: { orderNumber: string; patch: Rec
  *
  * The idempotency rule is the same as everywhere else and is enforced here
  * too, not just in the UI: a milestone already delivered is never sent
- * again, however many times this is called.
+ * again, however many times this is called. Concurrent resends are
+ * serialized by an atomic claim (compare-and-set on the order version)
+ * taken BEFORE sending, so N simultaneous clicks send at most one email.
  */
 async function resendCustomerEmail(req: Request, body: { orderNumber: string; event: string }): Promise<Response> {
   const staff = await requireStaff(req);
+  if (!canUpdateOrders(staff.role)) throw new HttpError(403, "forbidden");
   if (!CUSTOMER_EMAIL_EVENTS.includes(body.event as CustomerEmailEvent)) {
-    return json({ ok: false, message: "Unknown email type." }, 400);
+    return json({ ok: false, error: "Unknown email type.", message: "Unknown email type." }, 400);
   }
   const event = body.event as CustomerEmailEvent;
-  const rows = await dbSelect<{ data: Record<string, unknown> }>(`orders?select=data&order_number=eq.${encodeURIComponent(body.orderNumber)}`);
-  const order = rows[0]?.data;
-  if (!order) return json({ ok: false, message: "Order not found." }, 404);
-  if (alreadySent(order, event)) return json({ ok: false, message: "That email was already delivered — it is never sent twice." }, 409);
+  const current = typeof body.orderNumber === "string" && body.orderNumber ? await readVersionedOrder(body.orderNumber) : null;
+  const order = current?.order;
+  if (!current || !order) return json({ ok: false, error: "Order not found.", message: "Order not found." }, 404);
+  if (alreadySent(order, event)) return json({ ok: false, error: "That email was already delivered — it is never sent twice.", message: "That email was already delivered — it is never sent twice." }, 409);
+  const blocked = resendBlocked(order, event, Date.now());
+  if (blocked) return json({ ok: false, error: blocked, message: blocked }, 409);
 
-  const record = await sendCustomerStatusEmail(order, event, readCustomerEmailConfig());
-  recordCustomerEmail(order, event, record);
-  await dbUpdate(`orders?order_number=eq.${encodeURIComponent(body.orderNumber)}`, { data: order });
+  // Claim first: of N requests that read this version, exactly one takes it.
+  const claims = (order.customerEmailResends ?? {}) as Record<string, ResendClaim | undefined>;
+  const priorAttempts = ((order.customerEmails ?? {}) as Record<string, { attempts?: number } | undefined>)[event]?.attempts ?? 0;
+  const claim: ResendClaim = { at: new Date().toISOString(), by: staff.email, attempts: priorAttempts };
+  const claimed = await transitionOrder(body.orderNumber, current.version, { customerEmailResends: { ...claims, [event]: claim } });
+  if (!claimed.applied) {
+    return json({ ok: false, error: "The order changed while re-sending (another resend or update) — refresh and try again.", message: "The order changed while re-sending (another resend or update) — refresh and try again." }, 409);
+  }
+  const claimedOrder = claimed.data;
+
+  const bankInstructions = await bankInstructionsFor(claimedOrder, event);
+  const record = await sendCustomerStatusEmail(claimedOrder, event, readCustomerEmailConfig(), bankInstructions ? { bankInstructions } : {});
+  // Only `customerEmails.<event>` is written (A2-B6 / 0008).
+  await recordOrderCustomerEmail(body.orderNumber, event, record);
   await audit(staff.email, "customer_email_retried", body.orderNumber, `${event}=${record.status}`);
   return json({
     ok: record.status === "sent",

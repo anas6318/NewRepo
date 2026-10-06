@@ -226,6 +226,8 @@
     "selectZoneShort": "בחרו אזור",
     "simulatedDemo": "מדומה (דמו)",
     "zone": "אזור משלוח",
+    "error_idempotency_conflict": "פרטי ההזמנה השתנו בזמן שליחתה. נא לבדוק את העגלה והפרטים ולשלוח את ההזמנה שוב.",
+    "error_invalid_idempotency_key": "משהו השתבש בביצוע ההזמנה. נא לרענן את הדף ולנסות שוב.",
     "error_generic": "משהו השתבש בביצוע ההזמנה. נסו שוב.",
     "error_payment_method_unavailable": "אמצעי התשלום אינו זמין.",
     "error_zone_unavailable": "אזור המשלוח שנבחר אינו זמין.",
@@ -235,11 +237,14 @@
     "error_invalid_version": "הגרסה שנבחרה אינה זמינה.",
     "error_invalid_sleeve": "אפשרות השרוול אינה זמינה.",
     "error_invalid_quantity": "כמות לא תקינה.",
+    "error_too_many_lines": "בעגלה שלך יותר מדי פריטים לביצוע הזמנה אחת.",
     "error_personalization_unavailable": "התאמה אישית אינה זמינה למוצר בעגלה.",
     "error_invalid_personalization": "שם או מספר לא תקינים.",
     "error_invalid_badge": "הפאץ׳ שנבחר אינו זמין.",
     "bankTransferAfterConfirmation": "פרטי התשלום לאחר אישור הזמינות",
-    "bankTransferHeldBody": "נבדוק תחילה את הזמינות מול הספק. מיד לאחר האישור נשלח לך את פרטי ההעברה הבנקאית — עד אז אין תשלום, ולא נגבה דבר באופן אוטומטי."
+    "bankTransferHeldBody": "נבדוק תחילה את הזמינות מול הספק. מיד לאחר האישור נשלח לך את פרטי ההעברה הבנקאית — עד אז אין תשלום, ולא נגבה דבר באופן אוטומטי.",
+    "staleLineWarning": "פריט זה השתנה מאז שנוסף ולא ניתן עוד להזמין אותו בהגדרה הזו.",
+    "staleLineBlocksSubmit": "יש להסיר את הפריטים המסומנים למטה לפני ביצוע ההזמנה."
   },
   "confirmation": {
     "title": "ההזמנה התקבלה",

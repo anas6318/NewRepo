@@ -63,8 +63,9 @@ sandbox:build && npm run sandbox:serve` → http://localhost:4173.
 3. Set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (+ site URL, WhatsApp,
    Instagram, analytics IDs) and deploy `npm run build` output to Vercel
    (config in `vercel.json`) or any static host with SPA rewrites.
-4. Promote your owner account:
-   `update profiles set role='owner' where email='you@…';`
+4. Promote your first owner account with the guarded script
+   `docs/sql/bootstrap-first-owner.sql` (a bare role `update` is refused by
+   the `profiles_role_guard` trigger) - see `docs/deployment-guide.md` §5.
 5. Work through `docs/launch-checklist.md` before announcing.
 
 ## Key guarantees implemented

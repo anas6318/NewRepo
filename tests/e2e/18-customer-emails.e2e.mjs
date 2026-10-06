@@ -59,6 +59,24 @@ async function setFulfillment(page, BASE, orderNumber, status) {
   await page.waitForTimeout(500);
 }
 
+/** The order lifecycle (F3) only lets a PAID order move into production and
+ * shipping, so the flows below record the payment first — as the owner
+ * does after verifying a bank transfer. */
+async function setPayment(page, BASE, orderNumber, status) {
+  await page.goto(`${BASE}/admin/orders/${orderNumber}`, { waitUntil: "networkidle" });
+  await page.locator("label", { hasText: "Payment status" }).locator("select").selectOption(status);
+  await page.waitForTimeout(500);
+}
+
+const orderState = (page, orderNumber) =>
+  page.evaluate(
+    ([key, number]) => {
+      const o = JSON.parse(window.localStorage.getItem(key)).orders.find((x) => x.orderNumber === number);
+      return { payment: o.paymentStatus, fulfillment: o.fulfillmentStatus };
+    },
+    [LS_KEY, orderNumber],
+  );
+
 /* ── checkout records the first milestone ───────────────────────────────── */
 
 export async function checkout_records_the_order_received_email({ page, BASE }) {
@@ -78,6 +96,9 @@ export async function checkout_records_the_order_received_email({ page, BASE }) 
 export async function admin_status_changes_produce_the_right_milestones({ page, BASE }) {
   const orderNumber = await placeOrder(page, BASE, "emails-2@example.com");
   await adminLogin(page, BASE);
+  // Verifying the transfer moves the order to payment_confirmed (one email);
+  // re-selecting payment_confirmed below is then an idempotent no-op.
+  await setPayment(page, BASE, orderNumber, "paid");
 
   for (const [status, event] of [
     ["payment_confirmed", "payment_confirmed"],
@@ -102,6 +123,10 @@ export async function admin_status_changes_produce_the_right_milestones({ page, 
 export async function cancelling_and_refunding_each_notify_once({ page, BASE }) {
   const orderNumber = await placeOrder(page, BASE, "emails-cancel@example.com");
   await adminLogin(page, BASE);
+  // A refund needs a payment, and a PAID order is never silently cancelled:
+  // paid → under_review (refund pending) → cancel → refund.
+  await setPayment(page, BASE, orderNumber, "paid");
+  await setPayment(page, BASE, orderNumber, "under_review");
 
   await setFulfillment(page, BASE, orderNumber, "cancelled");
   assert.ok((await ledger(page, orderNumber)).cancelled, "no cancellation email recorded");
@@ -110,6 +135,7 @@ export async function cancelling_and_refunding_each_notify_once({ page, BASE }) 
   const log = await ledger(page, orderNumber);
   assert.ok(log.refunded, "no refund email recorded");
   assert.equal(log.cancelled.attempts, 1, "the cancellation was re-notified");
+  assert.deepEqual(await orderState(page, orderNumber), { payment: "refunded", fulfillment: "refunded" }, "payment follows the refund");
 }
 
 /* ── several internal steps, one customer email ─────────────────────────── */
@@ -117,12 +143,14 @@ export async function cancelling_and_refunding_each_notify_once({ page, BASE }) 
 export async function production_steps_share_one_processing_email({ page, BASE }) {
   const orderNumber = await placeOrder(page, BASE, "emails-3@example.com");
   await adminLogin(page, BASE);
+  await setPayment(page, BASE, orderNumber, "paid");
+  const beforeProduction = Object.keys(await ledger(page, orderNumber)).sort();
 
   // All four internal production steps collapse onto ONE customer milestone.
   await setFulfillment(page, BASE, orderNumber, "sent_to_supplier");
   let log = await ledger(page, orderNumber);
   assert.ok(log.processing, "moving into production produced no processing record");
-  assert.deepEqual(Object.keys(log).sort(), ["order_received", "processing"], "an extra milestone appeared");
+  assert.deepEqual(Object.keys(log).sort(), [...beforeProduction, "processing"].sort(), "an extra milestone appeared");
 
   // Once the provider has actually delivered it — which is what production
   // records and demo mode cannot — the remaining steps must not touch it.
@@ -150,6 +178,7 @@ export async function production_steps_share_one_processing_email({ page, BASE }
 export async function an_undelivered_milestone_is_retried_not_dropped({ page, BASE }) {
   const orderNumber = await placeOrder(page, BASE, "emails-retry@example.com");
   await adminLogin(page, BASE);
+  await setPayment(page, BASE, orderNumber, "paid");
 
   await setFulfillment(page, BASE, orderNumber, "sent_to_supplier");
   assert.equal((await ledger(page, orderNumber)).processing.attempts, 1);
@@ -160,14 +189,29 @@ export async function an_undelivered_milestone_is_retried_not_dropped({ page, BA
 }
 
 export async function statuses_a_person_handles_send_nothing({ page, BASE }) {
+  // Each status is actually REACHED through the lifecycle (F3), not just
+  // attempted: a shipped order for issue_reported / ready_for_pickup, a
+  // second unpaid order for supplier_unavailable. awaiting_supplier_confirmation
+  // is an initial state only (set by checkout); it is covered by
+  // 06-admin (held orders) and must also produce nothing here.
   const orderNumber = await placeOrder(page, BASE, "emails-4@example.com");
+  const second = await placeOrder(page, BASE, "emails-4b@example.com");
   await adminLogin(page, BASE);
+  await setPayment(page, BASE, orderNumber, "paid");
+  await setFulfillment(page, BASE, orderNumber, "sent_to_supplier");
+  await setFulfillment(page, BASE, orderNumber, "supplier_dispatched");
 
   const before = Object.keys(await ledger(page, orderNumber)).sort();
-  for (const status of ["awaiting_supplier_confirmation", "supplier_unavailable", "issue_reported", "ready_for_pickup"]) {
+  for (const status of ["awaiting_supplier_confirmation", "issue_reported", "ready_for_pickup"]) {
     await setFulfillment(page, BASE, orderNumber, status);
   }
+  assert.equal((await orderState(page, orderNumber)).fulfillment, "ready_for_pickup", "the person-handled statuses were really reached");
   assert.deepEqual(Object.keys(await ledger(page, orderNumber)).sort(), before, "an automatic email was sent for a status a person handles");
+
+  const beforeSecond = Object.keys(await ledger(page, second)).sort();
+  await setFulfillment(page, BASE, second, "supplier_unavailable");
+  assert.equal((await orderState(page, second)).fulfillment, "supplier_unavailable");
+  assert.deepEqual(Object.keys(await ledger(page, second)).sort(), beforeSecond, "supplier_unavailable sent an automatic email");
 }
 
 /* ── the admin panel ────────────────────────────────────────────────────── */

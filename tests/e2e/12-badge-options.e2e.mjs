@@ -64,19 +64,19 @@ export async function each_badge_shows_its_own_configured_price({ page, BASE }) 
 
 export async function selecting_a_badge_updates_the_total_immediately({ page, BASE }) {
   await page.goto(`${BASE}/en/product/crimson-2005`, { waitUntil: "networkidle" });
-  assert.ok((await totalText(page)).includes("170"), "base ₪170");
+  assert.ok((await totalText(page)).includes("169"), "base ₪169");
 
   await page.getByRole("button", { name: /Champions League badge/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("182"), "override ₪12 → ₪182");
+  assert.ok((await totalText(page)).includes("181"), "override ₪12 → ₪181");
 
   await page.getByRole("button", { name: /^League badge/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("175"), "legacy ₪5 → ₪175");
+  assert.ok((await totalText(page)).includes("174"), "legacy ₪5 → ₪174");
 
   await page.getByRole("button", { name: /No badge/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("170"), "no badge restores ₪170");
+  assert.ok((await totalText(page)).includes("169"), "no badge restores ₪169");
 }
 
 export async function quantity_multiplies_the_badge_adjustment({ page, BASE }) {
@@ -84,7 +84,7 @@ export async function quantity_multiplies_the_badge_adjustment({ page, BASE }) {
   await page.getByRole("button", { name: /Champions League badge/ }).click();
   await page.locator(".qty button").nth(1).click(); // +
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("364"), "(170 + 12) × 2");
+  assert.ok((await totalText(page)).includes("362"), "(169 + 12) × 2");
 }
 
 export async function a_product_with_no_enabled_badges_hides_the_selector({ page, BASE }) {
@@ -116,7 +116,7 @@ export async function changing_a_global_price_changes_what_customers_pay({ page,
   await page.goto(`${BASE}/en/product/crimson-2005`, { waitUntil: "networkidle" });
   await page.getByRole("button", { name: /National tournament badge/ }).click();
   await page.waitForTimeout(200);
-  assert.ok((await totalText(page)).includes("191"), "170 + the new ₪21");
+  assert.ok((await totalText(page)).includes("190"), "169 + the new ₪21");
 }
 
 /* ── localization ───────────────────────────────────────────────────── */
@@ -197,7 +197,7 @@ export async function the_badge_survives_cart_and_checkout({ page, BASE }) {
   const cartText = (await page.locator("main").textContent()) ?? "";
   assert.match(cartText, /Champions League badge/, "cart shows the badge");
   assert.match(cartText, /\+₪12/, "cart shows the price actually charged");
-  assert.match(cartText, /182/, "unit price includes the badge");
+  assert.match(cartText, /181/, "unit price includes the badge");
 
   await page.goto(`${BASE}/en/checkout`, { waitUntil: "networkidle" });
   const checkoutText = (await page.locator("main").textContent()) ?? "";
@@ -221,7 +221,7 @@ export async function the_order_stores_an_immutable_priced_snapshot({ page, BASE
   assert.equal(item.badge.code, "league");
   assert.equal(item.badge.priceIls, 5, "the price charged is frozen into the order");
   assert.equal(item.badge.label, "League badge", "customer-facing name in the order locale");
-  assert.equal(item.unitPriceIls, 175);
+  assert.equal(item.unitPriceIls, 174);
 
   // The owner now triples the price. The placed order must not move.
   await patchBadges(page, BASE, "return badges.map((b) => (b.id === 'league-patch' ? { ...b, priceIls: 15, name: { ...b.name, en: 'Renamed badge' } } : b));");
@@ -231,7 +231,7 @@ export async function the_order_stores_an_immutable_priced_snapshot({ page, BASE
   );
   assert.equal(after.badge.priceIls, 5, "an existing order snapshot never changes");
   assert.equal(after.badge.name.en, "League badge");
-  assert.equal(after.unitPriceIls, 175);
+  assert.equal(after.unitPriceIls, 174);
 
   // And the customer's tracking view shows it without the internal reference.
   await page.goto(`${BASE}/en/track`, { waitUntil: "networkidle" });
@@ -269,7 +269,7 @@ export async function a_fabricated_badge_price_cannot_be_charged({ page, BASE })
     [LS_KEY, orderNumber],
   );
   assert.equal(item.badge.priceIls, 12, "the catalog/override price, not the submitted ₪0");
-  assert.equal(item.unitPriceIls, 182, "the server recomputed the whole line");
+  assert.equal(item.unitPriceIls, 181, "the server recomputed the whole line");
 }
 
 /* ── admin ──────────────────────────────────────────────────────────── */

@@ -103,6 +103,18 @@ export function isSendableAddress(value: string | undefined): boolean {
 }
 
 /**
+ * Redacts an email address for logs: keeps the first character and the
+ * domain, drops the rest of the local part (e.g. "a***@example.com").
+ * Console-mode/disabled logging must never write a full customer address.
+ */
+export function redactRecipient(value: string | undefined): string {
+  if (!value) return "(none)";
+  const at = value.indexOf("@");
+  if (at <= 0) return "[redacted]";
+  return `${value[0]}***@${value.slice(at + 1)}`;
+}
+
+/**
  * Sends one message and reports what actually happened. Never throws — every
  * failure path resolves to an outcome, so no caller can be broken by email.
  */
@@ -120,7 +132,10 @@ export async function deliverEmail(
     }
     if (config.provider !== "resend") {
       // Console mode: visible in function logs, never counted as delivered.
-      console.log(`[${label}:console] to=${message.to} subject=${message.subject}`);
+      // The recipient (which may be a customer address) is redacted; the
+      // subject here is always a static/order-number template, never
+      // customer-supplied text.
+      console.log(`[${label}:console] to=${redactRecipient(message.to)} subject=${message.subject}`);
       return { status: "disabled", error: `EMAIL_PROVIDER=${config.provider || "console"} — email not sent` };
     }
     if (!config.apiKey) {

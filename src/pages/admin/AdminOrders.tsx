@@ -221,6 +221,40 @@ function CustomerEmailPanel({ order, onChanged }: { order: Order; onChanged: () 
   );
 }
 
+/** Plain-English reason for a refused order update (server codes from
+ * supabase/functions/_shared/order-lifecycle.ts). The admin surface is English. */
+const ORDER_UPDATE_ERRORS: Record<string, string> = {
+  forbidden: "Your role cannot change orders.",
+  forbidden_payment_status: "Your role cannot set this payment status.",
+  invalid_transition: "That status change is not allowed from the order's current state.",
+  invalid_patch_key: "That field cannot be changed from Admin.",
+  invalid_patch_value: "That value is not valid.",
+  invalid_payment_status: "Unknown payment status.",
+  invalid_fulfillment_status: "Unknown fulfillment status.",
+  supplier_confirmation_not_required: "This order has no supplier check to decide.",
+};
+
+const TRANSITION_REASONS: Record<string, string> = {
+  payment_not_confirmed: "payment must be marked paid first",
+  supplier_not_confirmed: "the supplier must confirm availability first",
+  cancel_paid_requires_refund_state: "a paid order must be set to under_review or refunded before cancelling",
+  refund_requires_payment: "nothing was paid, so there is nothing to refund",
+  payment_already_settled: "the payment is already settled",
+  initial_state_only: "that is an initial state only",
+  fulfillment_transition_not_allowed: "the order cannot move there from its current step",
+  payment_transition_not_allowed: "the payment cannot move there from its current state",
+  payment_refunded_is_final: "a refunded payment is final",
+  fulfillment_refunded_is_final: "a refunded order is final",
+};
+
+function orderUpdateErrorMessage(error?: string, detail?: string): string {
+  if (!error) return "Update failed";
+  const base = ORDER_UPDATE_ERRORS[error] ?? `Update refused (${error}).`;
+  if (!detail) return base;
+  const reason = /\(([a-z_]+)\)$/.exec(detail)?.[1];
+  return `${base} ${detail.replace(/\s*\([a-z_]+\)$/, "")}${reason && TRANSITION_REASONS[reason] ? ` — ${TRANSITION_REASONS[reason]}.` : ""}`;
+}
+
 function PayBadge({ status }: { status: PaymentStatus }) {
   const cls = status === "paid" ? "badge--ok" : ["failed", "cancelled"].includes(status) ? "badge--err" : ["awaiting_payment", "pending", "under_review"].includes(status) ? "badge--warn" : "badge--muted";
   return <span className={`badge ${cls}`}>{status}</span>;
@@ -267,7 +301,11 @@ export function AdminOrderView({ orderNumber }: { orderNumber: string }) {
     if (res.ok) {
       toast.push("Updated");
       load();
-    } else toast.push("Update failed", "error");
+    } else {
+      toast.push(orderUpdateErrorMessage(res.error, res.detail), "error");
+      // Re-read so the selects show the state that is actually stored.
+      load();
+    }
   };
 
   const resync = async () => {

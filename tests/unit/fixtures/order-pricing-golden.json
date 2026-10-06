@@ -1,0 +1,4894 @@
+{
+  "baselineSha": "c532a2bd7b15a8be75a273972be5059061995369",
+  "cases": [
+    {
+      "name": "err: invalid_customer (bad email)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_customer"
+      }
+    },
+    {
+      "name": "err: invalid_customer (missing name)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_customer"
+      }
+    },
+    {
+      "name": "limit: one-character name",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "D",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "limit: over-length address (161)",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "limit: over-length notes (501)",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St",
+            "notes": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "err: empty_cart (no lines)",
+      "baseline": {
+        "status": 400,
+        "error": "empty_cart"
+      }
+    },
+    {
+      "name": "err: too_many_lines (31 lines)",
+      "baseline": {
+        "status": 400,
+        "error": "empty_cart"
+      }
+    },
+    {
+      "name": "err: store_not_configured",
+      "baseline": {
+        "status": 500,
+        "error": "store_not_configured"
+      }
+    },
+    {
+      "name": "err: payment_method_unavailable (disabled)",
+      "baseline": {
+        "status": 400,
+        "error": "payment_method_unavailable"
+      }
+    },
+    {
+      "name": "err: payment_method_unavailable (not configured)",
+      "baseline": {
+        "status": 400,
+        "error": "payment_method_unavailable"
+      }
+    },
+    {
+      "name": "err: zone_unavailable (inactive)",
+      "baseline": {
+        "status": 400,
+        "error": "zone_unavailable"
+      }
+    },
+    {
+      "name": "err: zone_unavailable (unknown)",
+      "baseline": {
+        "status": 400,
+        "error": "zone_unavailable"
+      }
+    },
+    {
+      "name": "precedence: invalid_customer beats empty_cart",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_customer"
+      }
+    },
+    {
+      "name": "err: invalid_quantity 0",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_quantity"
+      }
+    },
+    {
+      "name": "err: invalid_quantity 1.5",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_quantity"
+      }
+    },
+    {
+      "name": "err: invalid_quantity \"2\"",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_quantity"
+      }
+    },
+    {
+      "name": "err: invalid_quantity 11",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_quantity"
+      }
+    },
+    {
+      "name": "err: product_unavailable (unknown)",
+      "baseline": {
+        "status": 400,
+        "error": "product_unavailable"
+      }
+    },
+    {
+      "name": "err: product_unavailable (draft)",
+      "baseline": {
+        "status": 400,
+        "error": "product_unavailable"
+      }
+    },
+    {
+      "name": "err: product_unavailable (archived)",
+      "baseline": {
+        "status": 400,
+        "error": "product_unavailable"
+      }
+    },
+    {
+      "name": "err: invalid_size",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_size"
+      }
+    },
+    {
+      "name": "err: size_unavailable (size record)",
+      "baseline": {
+        "status": 400,
+        "error": "size_unavailable"
+      }
+    },
+    {
+      "name": "err: size_unavailable (discontinued version)",
+      "baseline": {
+        "status": 400,
+        "error": "size_unavailable"
+      }
+    },
+    {
+      "name": "err: invalid_version",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_version"
+      }
+    },
+    {
+      "name": "err: invalid_version (missing)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_version"
+      }
+    },
+    {
+      "name": "err: invalid_sleeve",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_sleeve"
+      }
+    },
+    {
+      "name": "err: invalid_badge (unknown)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_badge"
+      }
+    },
+    {
+      "name": "err: invalid_badge (globally disabled)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_badge"
+      }
+    },
+    {
+      "name": "err: invalid_badge (required, none given)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_badge"
+      }
+    },
+    {
+      "name": "err: invalid_badge (not enabled on product)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_badge"
+      }
+    },
+    {
+      "name": "err: invalid_badge (negative price)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_badge"
+      }
+    },
+    {
+      "name": "err: personalization_unavailable",
+      "baseline": {
+        "status": 400,
+        "error": "personalization_unavailable"
+      }
+    },
+    {
+      "name": "err: invalid_personalization (number)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_personalization"
+      }
+    },
+    {
+      "name": "err: invalid_personalization (name 15)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_personalization"
+      }
+    },
+    {
+      "name": "err: pricing_error (negative unit)",
+      "baseline": {
+        "status": 500,
+        "error": "pricing_error"
+      }
+    },
+    {
+      "name": "precedence: first bad line wins (qty before later unknown product)",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_quantity"
+      }
+    },
+    {
+      "name": "precedence: unknown product before later bad quantity",
+      "baseline": {
+        "status": 400,
+        "error": "product_unavailable"
+      }
+    },
+    {
+      "name": "precedence: badge error on line 1 before size error on line 2",
+      "baseline": {
+        "status": 400,
+        "error": "invalid_badge"
+      }
+    },
+    {
+      "name": "ok: retro sale fixed_price, qty 1, bank",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: retro sale, qty 10, card (free delivery)",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "pending",
+          "fulfillment_status": "order_received",
+          "total_ils": 1490,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 10,
+              "lineTotalIls": 1490
+            }
+          ],
+          "subtotalIls": 1490,
+          "deliveryIls": 0,
+          "freeDelivery": true,
+          "totalIls": 1490,
+          "zoneId": "center",
+          "paymentMethod": "card",
+          "paymentStatus": "pending",
+          "fulfillmentStatus": "order_received",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: season fan short, no badge",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "season-1",
+              "slug": "season-1",
+              "title": {
+                "ar": "Product season-1-ar",
+                "he": "Product season-1-he",
+                "en": "Product season-1"
+              },
+              "image": "/img/season-1.webp",
+              "version": "fan",
+              "sleeve": "short",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: season player long + badge, card",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "pending",
+          "fulfillment_status": "order_received",
+          "total_ils": 244,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "season-1",
+              "slug": "season-1",
+              "title": {
+                "ar": "Product season-1-ar",
+                "he": "Product season-1-he",
+                "en": "Product season-1"
+              },
+              "image": "/img/season-1.webp",
+              "version": "player",
+              "sleeve": "long",
+              "size": "M",
+              "badge": {
+                "badgeId": "pl",
+                "code": "PL",
+                "name": {
+                  "ar": "Premier League-ar",
+                  "he": "Premier League-he",
+                  "en": "Premier League"
+                },
+                "label": "Premier League",
+                "priceIls": 10,
+                "supplierReference": "SUP-PL"
+              },
+              "patchId": "pl",
+              "patchName": {
+                "ar": "Premier League-ar",
+                "he": "Premier League-he",
+                "en": "Premier League"
+              },
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 30,
+                "optionAdjustmentsIls": 20,
+                "badgeAdjustmentIls": 10,
+                "regularUnitPriceIls": 209,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 209
+              },
+              "unitPriceIls": 209,
+              "quantity": 1,
+              "lineTotalIls": 209
+            }
+          ],
+          "subtotalIls": 209,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 244,
+          "zoneId": "north",
+          "paymentMethod": "card",
+          "paymentStatus": "pending",
+          "fulfillmentStatus": "order_received",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "versionSizes: player 4XL",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 214,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "season-1",
+              "slug": "season-1",
+              "title": {
+                "ar": "Product season-1-ar",
+                "he": "Product season-1-he",
+                "en": "Product season-1"
+              },
+              "image": "/img/season-1.webp",
+              "version": "player",
+              "sleeve": "short",
+              "size": "4XL",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 30,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 179,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 179
+              },
+              "unitPriceIls": 179,
+              "quantity": 1,
+              "lineTotalIls": 179
+            }
+          ],
+          "subtotalIls": 179,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 214,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "versionSizes: fan 4XL",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "season-1",
+              "slug": "season-1",
+              "title": {
+                "ar": "Product season-1-ar",
+                "he": "Product season-1-he",
+                "en": "Product season-1"
+              },
+              "image": "/img/season-1.webp",
+              "version": "fan",
+              "sleeve": "short",
+              "size": "4XL",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: sale percentage includeAddOns with long sleeve + badge",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 219,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "sale-pct",
+              "slug": "sale-pct",
+              "title": {
+                "ar": "Product sale-pct-ar",
+                "he": "Product sale-pct-he",
+                "en": "Product sale-pct"
+              },
+              "image": "/img/sale-pct.webp",
+              "sleeve": "long",
+              "size": "M",
+              "badge": {
+                "badgeId": "pl",
+                "code": "PL",
+                "name": {
+                  "ar": "Premier League-ar",
+                  "he": "Premier League-he",
+                  "en": "Premier League"
+                },
+                "label": "Premier League",
+                "priceIls": 10,
+                "supplierReference": "SUP-PL"
+              },
+              "patchId": "pl",
+              "patchName": {
+                "ar": "Premier League-ar",
+                "he": "Premier League-he",
+                "en": "Premier League"
+              },
+              "price": {
+                "regularBasePriceIls": 200,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 20,
+                "badgeAdjustmentIls": 10,
+                "regularUnitPriceIls": 230,
+                "saleType": "percentage",
+                "saleValue": 20,
+                "saleDiscountIls": 46,
+                "finalUnitPriceIls": 184,
+                "saleLabel": "Sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 184,
+              "quantity": 1,
+              "lineTotalIls": 184
+            }
+          ],
+          "subtotalIls": 184,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 219,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: sale fixed_amount",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 185,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "sale-amt",
+              "slug": "sale-amt",
+              "title": {
+                "ar": "Product sale-amt-ar",
+                "he": "Product sale-amt-he",
+                "en": "Product sale-amt"
+              },
+              "image": "/img/sale-amt.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 180,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 180,
+                "saleType": "fixed_amount",
+                "saleValue": 30,
+                "saleDiscountIls": 30,
+                "finalUnitPriceIls": 150,
+                "saleLabel": "Thirty off"
+              },
+              "unitPriceIls": 150,
+              "quantity": 1,
+              "lineTotalIls": 150
+            }
+          ],
+          "subtotalIls": 150,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 185,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: sale scheduled → regular price",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "sale-sched",
+              "slug": "sale-sched",
+              "title": {
+                "ar": "Product sale-sched-ar",
+                "he": "Product sale-sched-he",
+                "en": "Product sale-sched"
+              },
+              "image": "/img/sale-sched.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: sale expired at now (end exclusive) → regular price",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "sale-exp",
+              "slug": "sale-exp",
+              "title": {
+                "ar": "Product sale-exp-ar",
+                "he": "Product sale-exp-he",
+                "en": "Product sale-exp"
+              },
+              "image": "/img/sale-exp.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: sale invalid config → regular price",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "sale-invalid",
+              "slug": "sale-invalid",
+              "title": {
+                "ar": "Product sale-invalid-ar",
+                "he": "Product sale-invalid-he",
+                "en": "Product sale-invalid"
+              },
+              "image": "/img/sale-invalid.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: sale auto percent label, locale he",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 155,
+          "locale": "he",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "he",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "sale-auto",
+              "slug": "sale-auto",
+              "title": {
+                "ar": "Product sale-auto-ar",
+                "he": "Product sale-auto-he",
+                "en": "Product sale-auto"
+              },
+              "image": "/img/sale-auto.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 160,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 160,
+                "saleType": "fixed_amount",
+                "saleValue": 40,
+                "saleDiscountIls": 40,
+                "finalUnitPriceIls": 120,
+                "saleLabel": "25% הנחה"
+              },
+              "unitPriceIls": 120,
+              "quantity": 1,
+              "lineTotalIls": 120
+            }
+          ],
+          "subtotalIls": 120,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 155,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: supplier hold + sale priceValidUntil, bank",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_supplier_confirmation",
+          "total_ils": 143,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "hold-1",
+              "slug": "hold-1",
+              "title": {
+                "ar": "Product hold-1-ar",
+                "he": "Product hold-1-he",
+                "en": "Product hold-1"
+              },
+              "image": "/img/hold-1.webp",
+              "size": "L",
+              "price": {
+                "regularBasePriceIls": 120,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 120,
+                "saleType": "percentage",
+                "saleValue": 10,
+                "saleDiscountIls": 12,
+                "finalUnitPriceIls": 108,
+                "saleLabel": "Sale",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z",
+                "priceValidUntil": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 108,
+              "quantity": 1,
+              "lineTotalIls": 108
+            }
+          ],
+          "subtotalIls": 108,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 143,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_supplier_confirmation",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_supplier_confirmation",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ],
+          "supplierConfirmation": {
+            "required": true,
+            "status": "pending",
+            "items": [
+              {
+                "slug": "hold-1",
+                "size": "L"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "ok: stale confirmation holds, card",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "pending",
+          "fulfillment_status": "awaiting_supplier_confirmation",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "stale-1",
+              "slug": "stale-1",
+              "title": {
+                "ar": "Product stale-1-ar",
+                "he": "Product stale-1-he",
+                "en": "Product stale-1"
+              },
+              "image": "/img/stale-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "card",
+          "paymentStatus": "pending",
+          "fulfillmentStatus": "awaiting_supplier_confirmation",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_supplier_confirmation",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ],
+          "supplierConfirmation": {
+            "required": true,
+            "status": "pending",
+            "items": [
+              {
+                "slug": "stale-1",
+                "size": "M"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "ok: made_to_order product",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: badge override ₪0 on retro",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "badge": {
+                "badgeId": "ucl",
+                "code": "UCL",
+                "name": {
+                  "ar": "Champions League-ar",
+                  "he": "Champions League-he",
+                  "en": "Champions League"
+                },
+                "label": "Champions League",
+                "priceIls": 0
+              },
+              "patchId": "ucl",
+              "patchName": {
+                "ar": "Champions League-ar",
+                "he": "Champions League-he",
+                "en": "Champions League"
+              },
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: legacy patchIds product via legacy patchId field",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 189,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "legacy-patch",
+              "slug": "legacy-patch",
+              "title": {
+                "ar": "Product legacy-patch-ar",
+                "he": "Product legacy-patch-he",
+                "en": "Product legacy-patch"
+              },
+              "image": "/img/legacy-patch.webp",
+              "size": "M",
+              "badge": {
+                "badgeId": "legacy",
+                "code": "legacy",
+                "name": {
+                  "ar": "Legacy-ar",
+                  "he": "Legacy-he",
+                  "en": "Legacy"
+                },
+                "label": "Legacy",
+                "priceIls": 5
+              },
+              "patchId": "legacy",
+              "patchName": {
+                "ar": "Legacy-ar",
+                "he": "Legacy-he",
+                "en": "Legacy"
+              },
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 5,
+                "regularUnitPriceIls": 154,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 154
+              },
+              "unitPriceIls": 154,
+              "quantity": 1,
+              "lineTotalIls": 154
+            }
+          ],
+          "subtotalIls": 154,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 189,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: required badge with product override",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 196,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "badge-req",
+              "slug": "badge-req",
+              "title": {
+                "ar": "Product badge-req-ar",
+                "he": "Product badge-req-he",
+                "en": "Product badge-req"
+              },
+              "image": "/img/badge-req.webp",
+              "size": "M",
+              "badge": {
+                "badgeId": "pl",
+                "code": "PL",
+                "name": {
+                  "ar": "Premier League-ar",
+                  "he": "Premier League-he",
+                  "en": "Premier League"
+                },
+                "label": "Premier League",
+                "priceIls": 12,
+                "supplierReference": "SUP-PL"
+              },
+              "patchId": "pl",
+              "patchName": {
+                "ar": "Premier League-ar",
+                "he": "Premier League-he",
+                "en": "Premier League"
+              },
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 12,
+                "regularUnitPriceIls": 161,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 161
+              },
+              "unitPriceIls": 161,
+              "quantity": 1,
+              "lineTotalIls": 161
+            }
+          ],
+          "subtotalIls": 161,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 196,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "badge-active: column inactive but data active",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 189,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "drift-badge",
+              "slug": "drift-badge",
+              "title": {
+                "ar": "Product drift-badge-ar",
+                "he": "Product drift-badge-he",
+                "en": "Product drift-badge"
+              },
+              "image": "/img/drift-badge.webp",
+              "size": "M",
+              "badge": {
+                "badgeId": "drift",
+                "code": "DRIFT",
+                "name": {
+                  "ar": "Drift-ar",
+                  "he": "Drift-he",
+                  "en": "Drift"
+                },
+                "label": "Drift",
+                "priceIls": 5
+              },
+              "patchId": "drift",
+              "patchName": {
+                "ar": "Drift-ar",
+                "he": "Drift-he",
+                "en": "Drift"
+              },
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 5,
+                "regularUnitPriceIls": 154,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 154
+              },
+              "unitPriceIls": 154,
+              "quantity": 1,
+              "lineTotalIls": 154
+            }
+          ],
+          "subtotalIls": 154,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 189,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: personalization is free",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "personalization": {
+                "name": "DANA",
+                "number": "10"
+              },
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: delivery threshold not met (2 qualifying + 1 non-qualifying)",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 432,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 2,
+              "lineTotalIls": 298
+            },
+            {
+              "productId": "np-1",
+              "slug": "np-1",
+              "title": {
+                "ar": "Product np-1-ar",
+                "he": "Product np-1-he",
+                "en": "Product np-1"
+              },
+              "image": "/img/np-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 99,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 99,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 99
+              },
+              "unitPriceIls": 99,
+              "quantity": 1,
+              "lineTotalIls": 99
+            }
+          ],
+          "subtotalIls": 397,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 432,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: delivery threshold met exactly across lines",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 447,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 2,
+              "lineTotalIls": 298
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 447,
+          "deliveryIls": 0,
+          "freeDelivery": true,
+          "totalIls": 447,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "ok: 30 lines",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 4470,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 4470,
+          "deliveryIls": 0,
+          "freeDelivery": true,
+          "totalIls": 4470,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "promo: repeat, no stacking (sale units skipped)",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 701.3,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 2,
+              "lineTotalIls": 298
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 2,
+              "lineTotalIls": 298
+            },
+            {
+              "productId": "sale-amt",
+              "slug": "sale-amt",
+              "title": {
+                "ar": "Product sale-amt-ar",
+                "he": "Product sale-amt-he",
+                "en": "Product sale-amt"
+              },
+              "image": "/img/sale-amt.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 180,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 180,
+                "saleType": "fixed_amount",
+                "saleValue": 30,
+                "saleDiscountIls": 30,
+                "finalUnitPriceIls": 150,
+                "saleLabel": "Thirty off"
+              },
+              "unitPriceIls": 150,
+              "quantity": 1,
+              "lineTotalIls": 150
+            }
+          ],
+          "subtotalIls": 746,
+          "promotion": {
+            "promotionId": "p1",
+            "type": "second_item_percentage",
+            "label": {
+              "ar": "Buy 2 get 15%-ar",
+              "he": "Buy 2 get 15%-he",
+              "en": "Buy 2 get 15%"
+            },
+            "labelText": "Buy 2 get 15%",
+            "discountPercent": 15,
+            "minimumQuantity": 2,
+            "repeatPerPair": true,
+            "stackWithProductSales": false,
+            "eligibleUnits": 5,
+            "discountedUnits": 2,
+            "originalMerchandiseIls": 746,
+            "discountIls": 44.7,
+            "finalMerchandiseIls": 701.3,
+            "items": [
+              {
+                "productId": "made-1",
+                "slug": "made-1",
+                "title": {
+                  "ar": "Product made-1-ar",
+                  "he": "Product made-1-he",
+                  "en": "Product made-1"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 22.35
+              },
+              {
+                "productId": "made-1",
+                "slug": "made-1",
+                "title": {
+                  "ar": "Product made-1-ar",
+                  "he": "Product made-1-he",
+                  "en": "Product made-1"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 22.35
+              }
+            ]
+          },
+          "promotionDiscountIls": 44.7,
+          "deliveryIls": 0,
+          "freeDelivery": true,
+          "totalIls": 701.3,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "promo: single group only (repeatPerPair off)",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 573.65,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 4,
+              "lineTotalIls": 596
+            }
+          ],
+          "subtotalIls": 596,
+          "promotion": {
+            "promotionId": "p1",
+            "type": "second_item_percentage",
+            "label": {
+              "ar": "Buy 2 get 15%-ar",
+              "he": "Buy 2 get 15%-he",
+              "en": "Buy 2 get 15%"
+            },
+            "labelText": "Buy 2 get 15%",
+            "discountPercent": 15,
+            "minimumQuantity": 2,
+            "repeatPerPair": false,
+            "stackWithProductSales": false,
+            "eligibleUnits": 4,
+            "discountedUnits": 1,
+            "originalMerchandiseIls": 596,
+            "discountIls": 22.35,
+            "finalMerchandiseIls": 573.65,
+            "items": [
+              {
+                "productId": "made-1",
+                "slug": "made-1",
+                "title": {
+                  "ar": "Product made-1-ar",
+                  "he": "Product made-1-he",
+                  "en": "Product made-1"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 22.35
+              }
+            ]
+          },
+          "promotionDiscountIls": 22.35,
+          "deliveryIls": 0,
+          "freeDelivery": true,
+          "totalIls": 573.65,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "promo: stacking with product sales",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 372.5,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 3,
+              "lineTotalIls": 447
+            }
+          ],
+          "subtotalIls": 447,
+          "promotion": {
+            "promotionId": "p1",
+            "type": "second_item_percentage",
+            "label": {
+              "ar": "Buy 2 get 15%-ar",
+              "he": "Buy 2 get 15%-he",
+              "en": "Buy 2 get 15%"
+            },
+            "labelText": "Buy 2 get 15%",
+            "discountPercent": 50,
+            "minimumQuantity": 2,
+            "repeatPerPair": true,
+            "stackWithProductSales": true,
+            "eligibleUnits": 3,
+            "discountedUnits": 1,
+            "originalMerchandiseIls": 447,
+            "discountIls": 74.5,
+            "finalMerchandiseIls": 372.5,
+            "items": [
+              {
+                "productId": "retro-2",
+                "slug": "retro-2",
+                "title": {
+                  "ar": "Product retro-2-ar",
+                  "he": "Product retro-2-he",
+                  "en": "Product retro-2"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 74.5
+              }
+            ]
+          },
+          "promotionDiscountIls": 74.5,
+          "deliveryIls": 0,
+          "freeDelivery": true,
+          "totalIls": 372.5,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "promo: badge excluded from merchandise value",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 330.65,
+          "locale": "ar",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "ar",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "badge": {
+                "badgeId": "pl",
+                "code": "PL",
+                "name": {
+                  "ar": "Premier League-ar",
+                  "he": "Premier League-he",
+                  "en": "Premier League"
+                },
+                "label": "Premier League-ar",
+                "priceIls": 10,
+                "supplierReference": "SUP-PL"
+              },
+              "patchId": "pl",
+              "patchName": {
+                "ar": "Premier League-ar",
+                "he": "Premier League-he",
+                "en": "Premier League"
+              },
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 10,
+                "regularUnitPriceIls": 179,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 159,
+                "saleLabel": "Retro sale-ar",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 159,
+              "quantity": 1,
+              "lineTotalIls": 159
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "badge": {
+                "badgeId": "pl",
+                "code": "PL",
+                "name": {
+                  "ar": "Premier League-ar",
+                  "he": "Premier League-he",
+                  "en": "Premier League"
+                },
+                "label": "Premier League-ar",
+                "priceIls": 10,
+                "supplierReference": "SUP-PL"
+              },
+              "patchId": "pl",
+              "patchName": {
+                "ar": "Premier League-ar",
+                "he": "Premier League-he",
+                "en": "Premier League"
+              },
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 10,
+                "regularUnitPriceIls": 159,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 159
+              },
+              "unitPriceIls": 159,
+              "quantity": 1,
+              "lineTotalIls": 159
+            }
+          ],
+          "subtotalIls": 318,
+          "promotion": {
+            "promotionId": "p1",
+            "type": "second_item_percentage",
+            "label": {
+              "ar": "Buy 2 get 15%-ar",
+              "he": "Buy 2 get 15%-he",
+              "en": "Buy 2 get 15%"
+            },
+            "labelText": "Buy 2 get 15%-ar",
+            "discountPercent": 15,
+            "minimumQuantity": 2,
+            "repeatPerPair": true,
+            "stackWithProductSales": true,
+            "eligibleUnits": 2,
+            "discountedUnits": 1,
+            "originalMerchandiseIls": 298,
+            "discountIls": 22.35,
+            "finalMerchandiseIls": 275.65,
+            "items": [
+              {
+                "productId": "retro-1",
+                "slug": "retro-1",
+                "title": {
+                  "ar": "Product retro-1-ar",
+                  "he": "Product retro-1-he",
+                  "en": "Product retro-1"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 22.35
+              }
+            ]
+          },
+          "promotionDiscountIls": 22.35,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 330.65,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "promo: eligible categories and excluded ids",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_supplier_confirmation",
+          "total_ils": 573.65,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "season-1",
+              "slug": "season-1",
+              "title": {
+                "ar": "Product season-1-ar",
+                "he": "Product season-1-he",
+                "en": "Product season-1"
+              },
+              "image": "/img/season-1.webp",
+              "version": "fan",
+              "sleeve": "short",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            },
+            {
+              "productId": "stale-1",
+              "slug": "stale-1",
+              "title": {
+                "ar": "Product stale-1-ar",
+                "he": "Product stale-1-he",
+                "en": "Product stale-1"
+              },
+              "image": "/img/stale-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 596,
+          "promotion": {
+            "promotionId": "p1",
+            "type": "second_item_percentage",
+            "label": {
+              "ar": "Buy 2 get 15%-ar",
+              "he": "Buy 2 get 15%-he",
+              "en": "Buy 2 get 15%"
+            },
+            "labelText": "Buy 2 get 15%",
+            "discountPercent": 15,
+            "minimumQuantity": 2,
+            "repeatPerPair": true,
+            "stackWithProductSales": true,
+            "eligibleUnits": 2,
+            "discountedUnits": 1,
+            "originalMerchandiseIls": 298,
+            "discountIls": 22.35,
+            "finalMerchandiseIls": 275.65,
+            "items": [
+              {
+                "productId": "retro-2",
+                "slug": "retro-2",
+                "title": {
+                  "ar": "Product retro-2-ar",
+                  "he": "Product retro-2-he",
+                  "en": "Product retro-2"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 22.35
+              }
+            ]
+          },
+          "promotionDiscountIls": 22.35,
+          "deliveryIls": 0,
+          "freeDelivery": true,
+          "totalIls": 573.65,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_supplier_confirmation",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_supplier_confirmation",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ],
+          "supplierConfirmation": {
+            "required": true,
+            "status": "pending",
+            "items": [
+              {
+                "slug": "stale-1",
+                "size": "M"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "promo: scheduled and invalid campaigns skipped, next applies",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 295.75,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 2,
+              "lineTotalIls": 298
+            }
+          ],
+          "subtotalIls": 298,
+          "promotion": {
+            "promotionId": "p-ok",
+            "type": "second_item_percentage",
+            "label": {
+              "ar": "Buy 2 get 15%-ar",
+              "he": "Buy 2 get 15%-he",
+              "en": "Buy 2 get 15%"
+            },
+            "labelText": "Buy 2 get 15%",
+            "discountPercent": 25,
+            "minimumQuantity": 2,
+            "repeatPerPair": true,
+            "stackWithProductSales": false,
+            "startsAt": "2026-06-01T00:00:00.000Z",
+            "endsAt": "2026-07-01T00:00:00.000Z",
+            "eligibleUnits": 2,
+            "discountedUnits": 1,
+            "originalMerchandiseIls": 298,
+            "discountIls": 37.25,
+            "finalMerchandiseIls": 260.75,
+            "items": [
+              {
+                "productId": "made-1",
+                "slug": "made-1",
+                "title": {
+                  "ar": "Product made-1-ar",
+                  "he": "Product made-1-he",
+                  "en": "Product made-1"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 37.25
+              }
+            ]
+          },
+          "promotionDiscountIls": 37.25,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 295.75,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "promo tie-break: equal sort_order, DB returns higher id first",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 273.4,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 2,
+              "lineTotalIls": 298
+            }
+          ],
+          "subtotalIls": 298,
+          "promotion": {
+            "promotionId": "p-b",
+            "type": "second_item_percentage",
+            "label": {
+              "ar": "Buy 2 get 15%-ar",
+              "he": "Buy 2 get 15%-he",
+              "en": "Buy 2 get 15%"
+            },
+            "labelText": "Buy 2 get 15%",
+            "discountPercent": 40,
+            "minimumQuantity": 2,
+            "repeatPerPair": true,
+            "stackWithProductSales": false,
+            "eligibleUnits": 2,
+            "discountedUnits": 1,
+            "originalMerchandiseIls": 298,
+            "discountIls": 59.6,
+            "finalMerchandiseIls": 238.4,
+            "items": [
+              {
+                "productId": "made-1",
+                "slug": "made-1",
+                "title": {
+                  "ar": "Product made-1-ar",
+                  "he": "Product made-1-he",
+                  "en": "Product made-1"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 59.6
+              }
+            ]
+          },
+          "promotionDiscountIls": 59.6,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 273.4,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "promo: cart below minimum earns nothing",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "locale: invalid locale",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "xx",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "xx",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "locale: missing locale",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "allowlist: customer extra keys and whitespace",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "  Dana Levi  ",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St",
+            "notes": "ring twice",
+            "isAdmin": true
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "allowlist: personalization extra keys",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "personalization": {
+                "name": "DANA",
+                "number": "7",
+                "priceIls": -50,
+                "html": "<b>"
+              },
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "version: non-empty version on a product without versions",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "personalization: name with digits",
+      "baseline": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "personalization": {
+                "name": "DANA10"
+              },
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "deviations": {
+    "err: too_many_lines (31 lines)": {
+      "reason": "V3 MUST-FIX: >30 lines is too_many_lines, not empty_cart. Baseline conflated the 0-lines and >30-lines checks into one empty_cart branch; the checkout.error_too_many_lines i18n string was unreachable in production and demo/server parity was broken.",
+      "expected": {
+        "status": 400,
+        "error": "too_many_lines"
+      }
+    },
+    "limit: one-character name": {
+      "reason": "Length limits (shared contract; mirrors checkout schema name 2-60): a 1-character name is now 400 invalid_customer. Baseline accepted any non-blank name.",
+      "expected": {
+        "status": 400,
+        "error": "invalid_customer"
+      }
+    },
+    "limit: over-length address (161)": {
+      "reason": "Length limits (shared contract; address 4-160): 161 chars is now 400 invalid_customer. Baseline had no string caps (A2 tamper: oversized payload).",
+      "expected": {
+        "status": 400,
+        "error": "invalid_customer"
+      }
+    },
+    "limit: over-length notes (501)": {
+      "reason": "Length limits (shared contract; notes <= 500): 501 chars is now 400 invalid_customer. Baseline had no cap.",
+      "expected": {
+        "status": 400,
+        "error": "invalid_customer"
+      }
+    },
+    "versionSizes: player 4XL": {
+      "reason": "A2-B4 fix: size must be valid for the selected version (versionSizes, same rule as sizeOptionsFor). Player is S-2XL, so 4XL is now 400 invalid_size; baseline only checked product.sizes and accepted it at 179.",
+      "expected": {
+        "status": 400,
+        "error": "invalid_size"
+      }
+    },
+    "badge-active: column inactive but data active": {
+      "reason": "A2-B10 fix: badge is active only when the patches.active COLUMN is true (the storefront's source: listBadges active=eq.true + RLS) and data.active is not false. Baseline preferred data.active, so this storefront-hidden badge was accepted.",
+      "expected": {
+        "status": 400,
+        "error": "invalid_badge"
+      }
+    },
+    "promo tie-break: equal sort_order, DB returns higher id first": {
+      "reason": "A2-B11 fix: campaigns ordered by sortOrder then id, exactly like src/lib/promotions.ts activePromotion. With equal sortOrder p-a (20%) now wins over p-b (40%); baseline took whichever row the DB returned first.",
+      "expected": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 303.2,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "made-1",
+              "slug": "made-1",
+              "title": {
+                "ar": "Product made-1-ar",
+                "he": "Product made-1-he",
+                "en": "Product made-1"
+              },
+              "image": "/img/made-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 149,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 149,
+                "saleDiscountIls": 0,
+                "finalUnitPriceIls": 149
+              },
+              "unitPriceIls": 149,
+              "quantity": 2,
+              "lineTotalIls": 298
+            }
+          ],
+          "subtotalIls": 298,
+          "promotion": {
+            "promotionId": "p-a",
+            "type": "second_item_percentage",
+            "label": {
+              "ar": "Buy 2 get 15%-ar",
+              "he": "Buy 2 get 15%-he",
+              "en": "Buy 2 get 15%"
+            },
+            "labelText": "Buy 2 get 15%",
+            "discountPercent": 20,
+            "minimumQuantity": 2,
+            "repeatPerPair": true,
+            "stackWithProductSales": false,
+            "eligibleUnits": 2,
+            "discountedUnits": 1,
+            "originalMerchandiseIls": 298,
+            "discountIls": 29.8,
+            "finalMerchandiseIls": 268.2,
+            "items": [
+              {
+                "productId": "made-1",
+                "slug": "made-1",
+                "title": {
+                  "ar": "Product made-1-ar",
+                  "he": "Product made-1-he",
+                  "en": "Product made-1"
+                },
+                "unitMerchandiseIls": 149,
+                "discountIls": 29.8
+              }
+            ]
+          },
+          "promotionDiscountIls": 29.8,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 303.2,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    "locale: invalid locale": {
+      "reason": "A2-B9 fix: locale outside ar/he/en is now 400 invalid_locale before any DB write. Baseline passed it through; in production the orders.locale CHECK then failed the insert as 500 internal_error (the harness has no CHECK, hence the frozen 200).",
+      "expected": {
+        "status": 400,
+        "error": "invalid_locale"
+      }
+    },
+    "locale: missing locale": {
+      "reason": "A2-B9 fix: a missing locale is now 400 invalid_locale. Baseline stored the order with no data.locale (column fell back to the DB default 'ar'). The storefront always sends a locale.",
+      "expected": {
+        "status": 400,
+        "error": "invalid_locale"
+      }
+    },
+    "allowlist: customer extra keys and whitespace": {
+      "reason": "Allowlist + trim fix (A2 tamper: extra fields persisted verbatim): only name/email/phone/city/address/notes are stored, trimmed like the checkout schema; isAdmin and a spoofed customerId are dropped. Pricing unchanged.",
+      "expected": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St",
+            "notes": "ring twice"
+          },
+          "items": [
+            {
+              "productId": "retro-1",
+              "slug": "retro-1",
+              "title": {
+                "ar": "Product retro-1-ar",
+                "he": "Product retro-1-he",
+                "en": "Product retro-1"
+              },
+              "image": "/img/retro-1.webp",
+              "size": "M",
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    "allowlist: personalization extra keys": {
+      "reason": "Allowlist fix: only personalization name/number are stored; priceIls and html keys are dropped. Personalization stays free, pricing unchanged.",
+      "expected": {
+        "status": 200,
+        "orderNumber": "CR-GOLDEN",
+        "trackingContact": "dana@example.com",
+        "row": {
+          "customer_id": null,
+          "contact_hash": "hash(dana@example.com)",
+          "payment_status": "awaiting_payment",
+          "fulfillment_status": "awaiting_payment",
+          "total_ils": 184,
+          "locale": "en",
+          "created_at": "2026-06-15T12:00:00.000Z"
+        },
+        "order": {
+          "createdAt": "2026-06-15T12:00:00.000Z",
+          "locale": "en",
+          "customer": {
+            "name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "city": "Haifa",
+            "address": "1 Herzl St"
+          },
+          "items": [
+            {
+              "productId": "retro-2",
+              "slug": "retro-2",
+              "title": {
+                "ar": "Product retro-2-ar",
+                "he": "Product retro-2-he",
+                "en": "Product retro-2"
+              },
+              "image": "/img/retro-2.webp",
+              "size": "M",
+              "personalization": {
+                "name": "DANA",
+                "number": "7"
+              },
+              "price": {
+                "regularBasePriceIls": 169,
+                "versionAdjustmentIls": 0,
+                "optionAdjustmentsIls": 0,
+                "badgeAdjustmentIls": 0,
+                "regularUnitPriceIls": 169,
+                "saleType": "fixed_price",
+                "saleValue": 149,
+                "saleDiscountIls": 20,
+                "finalUnitPriceIls": 149,
+                "saleLabel": "Retro sale",
+                "saleStartsAt": "2026-06-01T00:00:00.000Z",
+                "saleEndsAt": "2026-07-01T00:00:00.000Z"
+              },
+              "unitPriceIls": 149,
+              "quantity": 1,
+              "lineTotalIls": 149
+            }
+          ],
+          "subtotalIls": 149,
+          "deliveryIls": 35,
+          "freeDelivery": false,
+          "totalIls": 184,
+          "zoneId": "north",
+          "paymentMethod": "bank_transfer",
+          "paymentStatus": "awaiting_payment",
+          "fulfillmentStatus": "awaiting_payment",
+          "tracking": [
+            {
+              "status": "order_received",
+              "at": "2026-06-15T12:00:00.000Z"
+            },
+            {
+              "status": "awaiting_payment",
+              "at": "2026-06-15T12:00:00.000Z"
+            }
+          ]
+        }
+      }
+    },
+    "version: non-empty version on a product without versions": {
+      "reason": "A2 tamper row 'Invalid version' fix: a non-empty version for a product without versions is now 400 invalid_version. Baseline ignored it for price but stored it in supplier-hold items.",
+      "expected": {
+        "status": 400,
+        "error": "invalid_version"
+      }
+    },
+    "personalization: name with digits": {
+      "reason": "Personalization contract (shared contract; ProductPage rule: 1-14 letters, marks, space, apostrophe, dot or hyphen): a name with digits is now 400 invalid_personalization. Baseline only checked length <= 14.",
+      "expected": {
+        "status": 400,
+        "error": "invalid_personalization"
+      }
+    }
+  }
+}

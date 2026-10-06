@@ -1,7 +1,7 @@
 /** Checkout (spec §14/§15): guest + account, zone-based delivery, honest
  * payment methods (only enabled+configured methods appear), full order
  * summary with no hidden fees. Totals recompute server-side on placement. */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "../../lib/router.tsx";
 import { localizeIssues } from "../../lib/form-errors.ts";
 import { cartNeedsSupplierConfirmation } from "../../lib/orders.ts";
@@ -12,7 +12,8 @@ import { useCart, useSession, useSettings } from "../../services/store.tsx";
 import { track } from "../../lib/analytics.ts";
 import { s } from "../../lib/schema.ts";
 import { resolveDeliveryFee } from "../../lib/delivery.ts";
-import type { PaymentMethodId } from "../../services/types.ts";
+import { sizeOptionsFor } from "../../services/sizing.ts";
+import type { CartLine, PaymentMethodId, Product } from "../../services/types.ts";
 import { Field } from "../../components/product/ReviewsSection.tsx";
 import { FreeDeliveryProgress } from "../../components/product/FreeDeliveryProgress.tsx";
 import { EmptyState, Price, useL } from "../../components/ui/bits.tsx";
@@ -20,6 +21,81 @@ import { IconBag } from "../../components/ui/Icons.tsx";
 import { formatBadgeAdjustment } from "../../lib/badges.ts";
 import { PromotionLine } from "../../components/cart/PromotionSummary.tsx";
 import { SafeImage } from "../../components/ui/SafeImage.tsx";
+import type { PlaceOrderInput } from "../../services/DataService.ts";
+import { IDEMPOTENCY_KEY_PATTERN, quickFingerprint, requestHashInput } from "../../../supabase/functions/_shared/order-idempotency.ts";
+
+/**
+ * Checkout idempotency (A2-S3). One key per checkout ATTEMPT, stored in
+ * sessionStorage beside a fingerprint of exactly what the server hashes
+ * (the same canonical form — order-idempotency.ts), so:
+ *   - a retry / double submit of the same cart + form reuses the key and
+ *     can never create a second order (the server replays the first one);
+ *   - any change to the cart or form starts a fresh key, so an edited
+ *     attempt is never mistaken for the old one (no spurious 409);
+ *   - a successful order, or a 409 conflict, clears it.
+ */
+export const CHECKOUT_IDEMPOTENCY_STORAGE_KEY = "crowned_checkout_idem_v1";
+
+function newIdempotencyKey(): string | undefined {
+  const c = globalThis.crypto;
+  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  if (typeof c?.getRandomValues !== "function") return undefined; // legacy path
+  const b = c.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6]! & 0x0f) | 0x40;
+  b[8] = (b[8]! & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/** The key for this attempt: the stored one when the attempt is unchanged,
+ * otherwise a fresh one (persisted before the request is sent). */
+export function checkoutIdempotencyKey(input: Omit<PlaceOrderInput, "idempotencyKey">): string | undefined {
+  const fp = quickFingerprint(requestHashInput(input));
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY) ?? "null") as { key?: unknown; fp?: unknown } | null;
+    if (stored && stored.fp === fp && typeof stored.key === "string" && IDEMPOTENCY_KEY_PATTERN.test(stored.key)) return stored.key;
+  } catch {
+    /* unreadable → start a fresh attempt */
+  }
+  const key = newIdempotencyKey();
+  try {
+    if (key) sessionStorage.setItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY, JSON.stringify({ key, fp }));
+  } catch {
+    /* storage unavailable: the key still protects this request */
+  }
+  return key;
+}
+
+export function clearCheckoutIdempotencyKey(): void {
+  try {
+    sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * A cart line is "stale" (A1-B6) when the product behind it has been
+ * removed from the catalog, is no longer published/available, or no longer
+ * offers the line's version/size. This is a catalog-validity question,
+ * distinct from `needsSupplierCheck` (which is about supplier confirmation,
+ * not whether the configuration can still be ordered at all). Reuses the
+ * product list Checkout already fetches for `needsSupplierCheck`.
+ */
+export function staleCartLineReason(
+  line: Pick<CartLine, "productId" | "slug" | "version" | "size">,
+  products: readonly Product[],
+): "removed" | "unavailable" | "size" | null {
+  const product = products.find((p) => p.id === line.productId || p.slug === line.slug);
+  if (!product) return "removed";
+  if (product.status === "draft" || product.status === "archived" || product.status === "unavailable") return "unavailable";
+  if (product.versions.length > 0 && line.version && !product.versions.some((v) => v.version === line.version)) {
+    return "unavailable";
+  }
+  const options = sizeOptionsFor(product, line.version);
+  if (!options.some((o) => o.size === line.size)) return "size";
+  return null;
+}
 
 const checkoutSchema = s.object({
   name: s.string().trim().min(2).max(60),
@@ -53,8 +129,14 @@ export function CheckoutPage() {
   const [policyAck, setPolicyAck] = useState(false);
   const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // A1-B5: a ref, not just the `busy` state, so a double-click or
+  // double-Enter cannot re-enter submit() before React has committed the
+  // re-render that disables the button — state updates are not guaranteed
+  // to have landed synchronously between two rapid native events.
+  const submittingRef = useRef(false);
+  const [products, setProducts] = useState<Product[]>([]);
 
   /**
    * Does this cart have to wait for a supplier check? Resolved from the
@@ -75,8 +157,12 @@ export function CheckoutPage() {
     }
     dataService()
       .listProducts()
-      .then((products) => {
-        if (alive) setNeedsSupplierCheck(cartNeedsSupplierConfirmation(cart.lines, products));
+      .then((list) => {
+        if (!alive) return;
+        setNeedsSupplierCheck(cartNeedsSupplierConfirmation(cart.lines, list));
+        // A1-B6: the same fetch that decides needsSupplierCheck also backs
+        // the stale-line flags below — no extra request.
+        setProducts(list);
       })
       .catch(() => {
         // Could not check — keep the details hidden rather than guess.
@@ -88,6 +174,18 @@ export function CheckoutPage() {
     // cartSignature covers exactly the fields availability depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartSignature]);
+
+  // A1-B6: lines whose product was removed/unpublished/unavailable, or
+  // whose version/size is no longer offered. Flagged inline and blocks
+  // submission until the customer removes them.
+  const staleLineKeys = useMemo(() => {
+    if (products.length === 0) return new Set<string>();
+    const keys = new Set<string>();
+    for (const line of cart.lines) {
+      if (staleCartLineReason(line, products)) keys.add(line.key);
+    }
+    return keys;
+  }, [cart.lines, products]);
 
   const availableMethods = useMemo(
     () => (settings?.paymentMethods ?? []).filter((m) => m.enabled && (m.configured || isDemoMode())),
@@ -122,6 +220,10 @@ export function CheckoutPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A1-B5 re-entrancy guard: checked first, before any state read/write,
+    // so a second synchronous invocation from a double-click/double-Enter
+    // can never fall through.
+    if (submittingRef.current || busy) return;
     setServerError(null);
     const parsed = checkoutSchema.safeParse(fields);
     const map: Record<string, string> = {};
@@ -129,45 +231,60 @@ export function CheckoutPage() {
     if (!zoneId) map.zone = t("checkout.selectZone");
     if (!method) map.method = t("checkout.selectPayment");
     if (!policyAck) map.policyAck = t("checkout.policyAckRequired");
+    // A1-B6: stale lines (removed/unpublished/unavailable product, or a
+    // size/version no longer offered) block submission until removed.
+    if (staleLineKeys.size > 0) map.stale = t("checkout.staleLineBlocksSubmit");
     setErrors(map);
     if (Object.keys(map).length > 0 || !parsed.success) {
       document.getElementById("checkout-errors")?.focus();
       return;
     }
 
-    setSubmitting(true);
+    submittingRef.current = true;
+    setBusy(true);
     track("add_shipping_info", { zone: zoneId });
     track("add_payment_info", { method });
+    const orderInput: Omit<PlaceOrderInput, "idempotencyKey"> = {
+      locale,
+      customer: parsed.data,
+      zoneId,
+      paymentMethod: method as PaymentMethodId,
+      lines: cart.lines.map((l) => ({
+        productId: l.productId,
+        version: l.version,
+        sleeve: l.sleeve,
+        size: l.size,
+        personalization: l.personalization,
+        // Only the badge id is sent. The server resolves the price itself.
+        badgeId: l.badge?.badgeId ?? l.patchId,
+        quantity: l.quantity,
+      })),
+      marketingConsent: consent,
+    };
+    // Same attempt → same key (retries, double submits); changed → new key.
+    const idempotencyKey = checkoutIdempotencyKey(orderInput);
     let res: Awaited<ReturnType<ReturnType<typeof dataService>["placeOrder"]>>;
     try {
-      res = await dataService().placeOrder({
-        locale,
-        customer: parsed.data,
-        zoneId,
-        paymentMethod: method as PaymentMethodId,
-        lines: cart.lines.map((l) => ({
-          productId: l.productId,
-          version: l.version,
-          sleeve: l.sleeve,
-          size: l.size,
-          personalization: l.personalization,
-          // Only the badge id is sent. The server resolves the price itself.
-          badgeId: l.badge?.badgeId ?? l.patchId,
-          quantity: l.quantity,
-        })),
-        marketingConsent: consent,
-      });
+      res = await dataService().placeOrder({ ...orderInput, ...(idempotencyKey ? { idempotencyKey } : {}) });
     } catch {
       // A thrown network/transport error must read as a failed order, never
-      // as a silent no-op. The form keeps everything the customer typed.
-      setSubmitting(false);
-      setServerError(t("checkout.error_generic"));
+      // as a silent no-op. The form keeps everything the customer typed —
+      // the same promise every other submitting form makes on a thrown
+      // error (ui-integrity parity).
+      submittingRef.current = false;
+      setBusy(false);
+      setServerError(t("errors.submitFailedKeep"));
       document.getElementById("checkout-errors")?.focus();
       return;
     }
-    setSubmitting(false);
+    submittingRef.current = false;
+    setBusy(false);
 
-    if (!res.ok || !res.orderNumber) {
+    if (!res.ok) {
+      // The key belongs to a different request on the server (e.g. the
+      // cart changed in another tab mid-attempt): drop it so the next
+      // submit is a fresh attempt, and ask the customer to review.
+      if (res.error === "idempotency_conflict") clearCheckoutIdempotencyKey();
       // A backend code this build has no wording for must degrade to the
       // generic message. `t()` echoes an unknown key back as a string, so a
       // `||` fallback never fires — the key has to be checked first.
@@ -175,6 +292,14 @@ export function CheckoutPage() {
       setServerError(has(key) ? t(key) : t("checkout.error_generic"));
       return;
     }
+    if (!res.orderNumber) {
+      // Defensive: an ok:true response should always carry an order number.
+      setServerError(t("checkout.error_generic"));
+      return;
+    }
+    // `res.duplicate` (the server replayed the order this attempt already
+    // created) is success exactly like a fresh order: same confirmation.
+    clearCheckoutIdempotencyKey();
     track("purchase", { value: res.order?.totalIls ?? cart.subtotalIls, order: res.orderNumber, method });
     cart.clear();
     try {
@@ -366,6 +491,16 @@ export function CheckoutPage() {
                   compareIls={line.price && line.price.saleDiscountIls > 0 ? line.price.regularUnitPriceIls * line.quantity : undefined}
                   className="text-sm"
                 />
+                {staleLineKeys.has(line.key) && (
+                  <div className="stack stack--sm" style={{ flexBasis: "100%" }}>
+                    <p className="field__error" role="alert">
+                      {t("checkout.staleLineWarning")}
+                    </p>
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => cart.remove(line.key)}>
+                      {t("cart.remove")}
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -391,8 +526,8 @@ export function CheckoutPage() {
             <Price ils={cart.merchandiseTotalIls + (deliveryIls ?? 0)} />
           </div>
           <p className="text-xs text-muted">{t("checkout.hiddenFeesNote")}</p>
-          <button type="submit" className="btn btn--gold btn--lg btn--block" disabled={submitting}>
-            {submitting ? t("common.loading") : t("checkout.placeOrder")}
+          <button type="submit" className="btn btn--gold btn--lg btn--block" disabled={busy}>
+            {busy ? t("common.loading") : t("checkout.placeOrder")}
           </button>
         </aside>
       </form>

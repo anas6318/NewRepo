@@ -7,7 +7,28 @@
  * Called: (a) fire-and-forget after order changes, (b) manually from admin
  * ("Resync"), (c) on a schedule to drain failures (docs/google-sheets-setup.md).
  */
-import { audit, dbSelect, dbUpdate, handleError, json, preflight, requireStaff, SERVICE_ROLE_KEY } from "../_shared/helpers.ts";
+import { audit, constantTimeEqual, dbRpc, dbSelect, dbUpdate, handleError, json, preflight, requireStaff, SERVICE_ROLE_KEY } from "../_shared/helpers.ts";
+
+/**
+ * Service-to-service call (place-order's fire-and-forget sync). Requires a
+ * NON-EMPTY configured key — with an empty env var, `Bearer ` alone would
+ * otherwise match — and compares in constant time (A2-S9).
+ */
+export function isServiceBearer(authorization: string, serviceKey: string): boolean {
+  if (!serviceKey) return false;
+  return constantTimeEqual(authorization, `Bearer ${serviceKey}`);
+}
+
+/** Every Google API response is checked: a failed call is never recorded as synced (A2-B7). */
+async function googleOk(res: Response, what: string): Promise<Response> {
+  if (!res.ok) throw new Error(`google ${what}: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  return res;
+}
+
+/** Writes back ONLY `data.sheetsSync`, atomically (A2-B6) — never the whole order. */
+async function recordSheetsSync(orderNumber: string, sheetsSync: Record<string, unknown>): Promise<void> {
+  await dbRpc("patch_order_data", { p_order_number: orderNumber, p_patch: { sheetsSync }, p_payment_status: null, p_fulfillment_status: null });
+}
 
 const SHEET_ID = Deno.env.get("GOOGLE_SHEET_ID") ?? "";
 const SA_EMAIL = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL") ?? "";
@@ -92,31 +113,43 @@ async function syncOne(orderNumber: string): Promise<{ ok: boolean; message: str
   try {
     const token = await googleAccessToken();
     // Ensure header row exists (idempotent write to A1).
-    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1?valueInputOption=RAW`, {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ values: [HEADER] }),
-    });
+    await googleOk(
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1?valueInputOption=RAW`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ values: [HEADER] }),
+      }),
+      "header write",
+    );
     // Duplicate prevention: find an existing row for this order number.
-    const existing = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/B:B`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const existing = await googleOk(
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/B:B`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      "row lookup",
+    );
     const colB = ((await existing.json()) as { values?: string[][] }).values ?? [];
     const rowIndex = colB.findIndex((r) => r[0] === orderNumber);
     const rowValues = orderToRow(order as Record<string, unknown>);
 
     if (rowIndex >= 0) {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A${rowIndex + 1}?valueInputOption=RAW`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify({ values: [rowValues] }),
-      });
+      await googleOk(
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A${rowIndex + 1}?valueInputOption=RAW`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({ values: [rowValues] }),
+        }),
+        "row update",
+      );
     } else {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:append?valueInputOption=RAW`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify({ values: [rowValues] }),
-      });
+      await googleOk(
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:append?valueInputOption=RAW`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({ values: [rowValues] }),
+        }),
+        "row append",
+      );
     }
 
     await dbUpdate(`sheets_sync_log?order_number=eq.${encodeURIComponent(orderNumber)}`, {
@@ -124,9 +157,7 @@ async function syncOne(orderNumber: string): Promise<{ ok: boolean; message: str
       last_error: null,
       updated_at: new Date().toISOString(),
     });
-    const orderObj = order as { sheetsSync?: unknown };
-    orderObj.sheetsSync = { status: "synced", lastAttemptAt: new Date().toISOString() };
-    await dbUpdate(`orders?order_number=eq.${encodeURIComponent(orderNumber)}`, { data: order });
+    await recordSheetsSync(orderNumber, { status: "synced", lastAttemptAt: new Date().toISOString() });
     return { ok: true, message: "Synced to Google Sheets." };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -135,6 +166,11 @@ async function syncOne(orderNumber: string): Promise<{ ok: boolean; message: str
       last_error: message.slice(0, 500),
       updated_at: new Date().toISOString(),
     });
+    try {
+      await recordSheetsSync(orderNumber, { status: "failed", lastAttemptAt: new Date().toISOString(), error: message.slice(0, 300) });
+    } catch (e) {
+      console.error("[sheets-sync] could not record the failure on the order:", e instanceof Error ? e.message : "unknown");
+    }
     return { ok: false, message: `Sync failed (queued for retry): ${message.slice(0, 200)}` };
   }
 }
@@ -144,7 +180,7 @@ Deno.serve(async (req) => {
   if (pre) return pre;
   try {
     const auth = req.headers.get("authorization") ?? "";
-    const isServiceCall = auth === `Bearer ${SERVICE_ROLE_KEY}`;
+    const isServiceCall = isServiceBearer(auth, SERVICE_ROLE_KEY);
     const body = (await req.json().catch(() => ({}))) as { orderNumber?: string; manual?: boolean; drain?: boolean };
 
     if (!isServiceCall) {

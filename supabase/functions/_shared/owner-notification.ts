@@ -23,7 +23,7 @@
  * on the order.
  */
 
-import { deliverEmail, envGet, escapeHtml, readEmailProviderConfig, redactError } from "./email-provider.ts";
+import { deliverEmail, envGet, escapeHtml, readEmailProviderConfig, redactError, redactRecipient } from "./email-provider.ts";
 
 // Re-exported so this module stays the single import for owner alerts.
 export { escapeHtml, redactError };
@@ -261,8 +261,12 @@ export async function sendOwnerOrderNotification(
     }
     const built = buildOwnerOrderEmail(order, config.adminBaseUrl);
     if (config.provider !== "resend") {
-      // Console mode: log the whole alert so it is usable from function logs.
-      console.log(`[owner-notification:console] to=${config.recipient}\n${built.text}`);
+      // Console mode: log identifying/status fields only. The full alert
+      // body (customer name, phone, email, address, notes) must never hit
+      // function logs — that is the same commitment as a real send.
+      console.log(
+        `[owner-notification:console] to=${redactRecipient(config.recipient)} order=${order.orderNumber ?? "(no order number)"} payment=${order.paymentStatus ?? "unknown"} fulfillment=${order.fulfillmentStatus ?? "unknown"}`,
+      );
     }
     const outcome = await deliverEmail(
       { provider: config.provider, from: config.from, apiKey: config.apiKey },

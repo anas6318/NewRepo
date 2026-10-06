@@ -10,7 +10,7 @@
  * throws, never carries supplier secrets or the API key, and can never be
  * the reason a customer's order fails.
  */
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -261,6 +261,27 @@ test("console mode is reported as disabled and contacts no provider", async () =
   assert.equal(result.status, "disabled");
   assert.match(result.error, /EMAIL_PROVIDER=console/);
   assert.equal(calls.length, 0);
+});
+
+test("console mode never logs the customer's PII (A2-S7)", async () => {
+  const { fn } = fakeFetch(ok);
+  const logSpy = mock.method(console, "log", () => {});
+  try {
+    const result = await sendOwnerOrderNotification(ORDER, { ...CONFIG, provider: "console" }, { fetch: fn });
+    assert.equal(result.status, "disabled");
+
+    const logged = logSpy.mock.calls.map((c) => String(c.arguments.join(" "))).join("\n");
+    assert.ok(logged.length > 0, "console mode should still log something usable from function logs");
+    for (const pii of ["Anas Test", "0521234567", "customer@example.com", "12 Example St", "Please call before delivery", "Check stock with supplier B"]) {
+      assert.ok(!logged.includes(pii), `console log leaked PII: ${pii}`);
+    }
+    // Order number and statuses stay, so staff can still find the alert in function logs.
+    assert.ok(logged.includes("CR-AB12CD"));
+    assert.ok(!logged.includes("owner@crowned.example"), "the recipient must be redacted, not logged in full");
+    assert.match(logged, /to=o\*\*\*@crowned\.example/);
+  } finally {
+    logSpy.mock.restore();
+  }
 });
 
 test("no recipient means disabled, not a failed send", async () => {

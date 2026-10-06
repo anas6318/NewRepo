@@ -275,6 +275,9 @@ const SUBMITTING_FORMS = [
   ["src/pages/storefront/InfoPages.tsx", "contact form"],
   ["src/components/checkout/IssueReportForm.tsx", "issue report"],
   ["src/components/product/ReviewsSection.tsx", "review form"],
+  // A1-B5: checkout's double-submit protection was exercised by no test at
+  // all before this — now held to the same bar as every other form.
+  ["src/pages/storefront/CheckoutPage.tsx", "checkout"],
 ] as const;
 
 test("every submitting form checks the result and catches throws", () => {

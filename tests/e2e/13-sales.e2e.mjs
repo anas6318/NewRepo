@@ -42,15 +42,15 @@ async function headlinePrice(page) {
 /* ── storefront display ─────────────────────────────────────────────── */
 
 export async function active_sale_shows_struck_regular_price_and_label({ page, BASE }) {
-  // onyx-home is seeded with an active 20% sale on a ₪140 regular price.
+  // onyx-home is seeded with an active 20% sale on a ₪149 regular price.
   await page.goto(`${BASE}/en/product/onyx-home`, { waitUntil: "networkidle" });
   const price = await headlinePrice(page);
-  assert.match(price, /112/, "sale price shown prominently");
-  assert.match(price, /140/, "regular price shown alongside");
+  assert.match(price, /119\.2/, "sale price shown prominently");
+  assert.match(price, /149/, "regular price shown alongside");
 
   const compare = page.locator(".product-price .price__compare").first();
   assert.equal(await compare.count(), 1, "the regular price is struck through");
-  assert.match((await compare.textContent()) ?? "", /140/, "and it is the real configured regular price");
+  assert.match((await compare.textContent()) ?? "", /149/, "and it is the real configured regular price");
 
   const panel = (await page.locator(".product-panel").textContent()) ?? "";
   assert.match(panel, /20% off/, "the configured sale label is shown");
@@ -63,19 +63,19 @@ export async function active_sale_shows_struck_regular_price_and_label({ page, B
 
 export async function sale_price_updates_with_version_and_badge({ page, BASE }) {
   await page.goto(`${BASE}/en/product/onyx-home`, { waitUntil: "networkidle" });
-  assert.match(await totalText(page), /112/, "fan: 20% off ₪140");
+  assert.match(await totalText(page), /119\.2/, "fan: 20% off ₪149");
 
   await page.locator("fieldset", { hasText: "Version" }).getByRole("button", { name: /Player/ }).click();
   await page.waitForTimeout(200);
-  // player = 140 + 20; 20% of 160 = 32 → 128
-  assert.match(await totalText(page), /128/, "the version adjustment is inside the sale");
+  // player = 149 + 30 = 179; 20% of 179 = 35.8 → 143.2
+  assert.match(await totalText(page), /143\.2/, "the version adjustment is inside the sale");
 
   const badge = page.getByRole("button", { name: /^Champions League badge/ });
   if (await badge.count()) {
     await badge.first().click();
     await page.waitForTimeout(200);
-    // + ₪10 badge, undiscounted → 138
-    assert.match(await totalText(page), /138/, "the badge is added after the discount, not discounted");
+    // + ₪10 badge, undiscounted → 153.2
+    assert.match(await totalText(page), /153\.2/, "the badge is added after the discount, not discounted");
   }
 }
 
@@ -84,15 +84,15 @@ export async function badge_is_not_discounted_by_the_sale({ page, BASE }) {
   const badge = page.getByRole("button", { name: /^Champions League badge/ }).first();
   await badge.click();
   await page.waitForTimeout(200);
-  // 140 − 28 + 10 = 122 — the worked example from the brief.
-  assert.match(await totalText(page), /122/, "₪140 → ₪112 + ₪10 badge = ₪122");
+  // 149 − 29.8 + 10 = 129.2 — the worked example from the brief, ₪149 base.
+  assert.match(await totalText(page), /129\.2/, "₪149 → ₪119.20 + ₪10 badge = ₪129.20");
 }
 
 export async function quantity_multiplies_the_sale_price({ page, BASE }) {
   await page.goto(`${BASE}/en/product/onyx-home`, { waitUntil: "networkidle" });
   await page.locator(".qty button").nth(1).click(); // +
   await page.waitForTimeout(200);
-  assert.match(await totalText(page), /224/, "112 × 2");
+  assert.match(await totalText(page), /238\.4/, "119.20 × 2");
 }
 
 export async function expired_sale_shows_the_regular_price_only({ page, BASE }) {
@@ -101,7 +101,7 @@ export async function expired_sale_shows_the_regular_price_only({ page, BASE }) 
   const panel = (await page.locator(".product-panel").textContent()) ?? "";
   assert.doesNotMatch(panel, /% off|Sale|Limited-time/, "an expired sale is not advertised");
   assert.equal(await page.locator(".product-price .price__compare").count(), 0, "no crossed-out price");
-  assert.match(await totalText(page), /170/, "the regular price is back on its own");
+  assert.match(await totalText(page), /169/, "the regular price is back on its own");
 }
 
 export async function scheduled_sale_is_announced_without_a_discounted_price({ page, BASE }) {
@@ -111,10 +111,12 @@ export async function scheduled_sale_is_announced_without_a_discounted_price({ p
   assert.match(panel, /Limited-time offer/, "the upcoming sale is named");
   assert.match(panel, /Sale starts/, "with a truthful start date");
   assert.equal(await page.locator(".product-price .price__compare").count(), 0, "no crossed-out price before it starts");
-  assert.match(await totalText(page), /170/, "the regular price is charged until it opens");
+  assert.match(await totalText(page), /169/, "the regular price is charged until it opens");
 }
 
 export async function a_sale_starting_in_the_future_is_hidden_by_default({ page, BASE }) {
+  // royal-1998 is seeded with its own ACTIVE retro-only sale (fixed ₪149);
+  // setSale() replaces that config entirely for this test.
   await setSale(page, BASE, "royal-1998", {
     enabled: true,
     type: "percentage",
@@ -125,30 +127,30 @@ export async function a_sale_starting_in_the_future_is_hidden_by_default({ page,
   await page.goto(`${BASE}/en/product/royal-1998`, { waitUntil: "networkidle" });
   const panel = (await page.locator(".product-panel").textContent()) ?? "";
   assert.doesNotMatch(panel, /30% off|Sale starts/, "nothing is shown without showBeforeStart");
-  assert.match(await totalText(page), /170/);
+  assert.match(await totalText(page), /169/);
 }
 
 export async function boundary_moments_flip_the_sale_exactly_once({ page, BASE }) {
   // A sale that ends shortly: active now, over afterwards — with no code
   // change, commit or redeploy in between. The wait is derived from the
   // stored end time rather than a fixed sleep, so the assertion cannot race
-  // a slow page load.
+  // a slow page load. setSale() replaces royal-1998's own seeded sale.
   const endsAt = offset(25_000);
   await setSale(page, BASE, "royal-1998", { enabled: true, type: "fixed_amount", amountOffIls: 20, startsAt: offset(-DAY), endsAt });
   await page.goto(`${BASE}/en/product/royal-1998`, { waitUntil: "networkidle" });
   assert.ok(Date.now() < Date.parse(endsAt), "the window is still open when this is asserted");
-  assert.match(await totalText(page), /150/, "active: ₪170 − ₪20");
+  assert.match(await totalText(page), /149/, "active: ₪169 − ₪20");
 
   await page.waitForTimeout(Math.max(500, Date.parse(endsAt) - Date.now() + 500));
   await page.reload({ waitUntil: "networkidle" });
-  assert.match(await totalText(page), /170/, "expired on its own schedule");
+  assert.match(await totalText(page), /169/, "expired on its own schedule");
   assert.equal(await page.locator(".product-price .price__compare").count(), 0);
 }
 
 export async function invalid_sale_configuration_charges_the_regular_price({ page, BASE }) {
   await setSale(page, BASE, "royal-1998", { enabled: true, type: "percentage", percentOff: 150, startsAt: offset(-DAY), endsAt: offset(DAY) });
   await page.goto(`${BASE}/en/product/royal-1998`, { waitUntil: "networkidle" });
-  assert.match(await totalText(page), /170/, "an impossible discount is never applied");
+  assert.match(await totalText(page), /169/, "an impossible discount is never applied");
   assert.equal(await page.locator(".product-price .price__compare").count(), 0);
 }
 
@@ -165,8 +167,8 @@ export async function product_cards_show_the_same_sale_as_the_product_page({ pag
   await page.goto(`${BASE}/en/shop`, { waitUntil: "networkidle" });
   const card = page.locator(".prod-card").filter({ hasText: "Onyx Home" }).first();
   const text = (await card.textContent()) ?? "";
-  assert.match(text, /112/, "card shows the sale price");
-  assert.match(text, /140/, "and the regular price");
+  assert.match(text, /119\.2/, "card shows the sale price");
+  assert.match(text, /149/, "and the regular price");
   assert.match(text, /20% off/, "and the label");
   assert.equal(await card.locator(".price__compare").count(), 1);
 
@@ -240,14 +242,14 @@ export async function the_sale_survives_cart_and_checkout({ page, BASE }) {
 
   await page.goto(`${BASE}/en/cart`, { waitUntil: "networkidle" });
   const cart = (await page.locator("main").textContent()) ?? "";
-  assert.match(cart, /112/, "cart charges the sale price");
-  assert.match(cart, /140/, "and still shows the regular price struck through");
+  assert.match(cart, /119\.2/, "cart charges the sale price");
+  assert.match(cart, /149/, "and still shows the regular price struck through");
   assert.equal(await page.locator("main .price__compare").count() > 0, true);
 
   await page.goto(`${BASE}/en/checkout`, { waitUntil: "networkidle" });
   const checkout = (await page.locator("main").textContent()) ?? "";
-  assert.match(checkout, /112/, "checkout agrees with the cart");
-  assert.match(checkout, /140/);
+  assert.match(checkout, /119\.2/, "checkout agrees with the cart");
+  assert.match(checkout, /149/);
 }
 
 export async function the_order_stores_an_immutable_price_snapshot({ page, BASE }) {
@@ -272,31 +274,31 @@ export async function the_order_stores_an_immutable_price_snapshot({ page, BASE 
     );
 
   const item = await read();
-  assert.equal(item.price.regularBasePriceIls, 140, "the regular base price is recorded");
-  assert.equal(item.price.regularUnitPriceIls, 140);
+  assert.equal(item.price.regularBasePriceIls, 149, "the regular base price is recorded");
+  assert.equal(item.price.regularUnitPriceIls, 149);
   assert.equal(item.price.saleType, "percentage");
   assert.equal(item.price.saleValue, 20);
-  assert.equal(item.price.saleDiscountIls, 28);
-  assert.equal(item.price.finalUnitPriceIls, 112);
+  assert.equal(item.price.saleDiscountIls, 29.8);
+  assert.equal(item.price.finalUnitPriceIls, 119.2);
   assert.equal(item.price.saleLabel, "20% off");
   assert.ok(item.price.saleEndsAt, "the sale window is recorded");
-  assert.equal(item.unitPriceIls, 112);
+  assert.equal(item.unitPriceIls, 119.2);
 
   // The confirmation page shows the same figures.
   const confirmation = (await page.locator("main").textContent()) ?? "";
-  assert.match(confirmation, /112/);
+  assert.match(confirmation, /119\.2/);
   assert.match(confirmation, /20% off/);
 
   // The owner now changes the sale and then ends it entirely.
   await setSale(page, BASE, "onyx-home", { enabled: true, type: "percentage", percentOff: 60, startsAt: offset(-DAY), endsAt: offset(DAY), autoPercentLabel: true });
   const afterEdit = await read();
-  assert.equal(afterEdit.price.finalUnitPriceIls, 112, "the placed order does not move");
+  assert.equal(afterEdit.price.finalUnitPriceIls, 119.2, "the placed order does not move");
   assert.equal(afterEdit.price.saleValue, 20);
 
   await setSale(page, BASE, "onyx-home", { enabled: false, type: "none" });
   const afterEnd = await read();
-  assert.equal(afterEnd.price.finalUnitPriceIls, 112, "and it survives the sale ending");
-  assert.equal(afterEnd.unitPriceIls, 112);
+  assert.equal(afterEnd.price.finalUnitPriceIls, 119.2, "and it survives the sale ending");
+  assert.equal(afterEnd.unitPriceIls, 119.2);
 
   // Restore the seeded sale for the other specs.
   await setSale(page, BASE, "onyx-home", { enabled: true, type: "percentage", percentOff: 20, startsAt: offset(-3 * DAY), endsAt: offset(10 * DAY), autoPercentLabel: true });
@@ -335,8 +337,8 @@ export async function a_forged_cart_price_is_recomputed_by_the_server({ page, BA
     [LS_KEY, orderNumber],
   );
   assert.equal(item.price.saleValue, 20, "the configured 20%, not the submitted 99%");
-  assert.equal(item.price.finalUnitPriceIls, 112, "not the submitted ₪1");
-  assert.equal(item.unitPriceIls, 112);
+  assert.equal(item.price.finalUnitPriceIls, 119.2, "not the submitted ₪1");
+  assert.equal(item.unitPriceIls, 119.2);
 }
 
 export async function a_sale_does_not_confirm_supplier_availability({ page, BASE }) {
@@ -402,8 +404,8 @@ export async function admin_can_create_a_sale_and_the_storefront_follows({ page,
 
   await page.goto(`${BASE}/en/product/royal-1998`, { waitUntil: "networkidle" });
   const price = await headlinePrice(page);
-  assert.match(price, /140/, "₪170 − ₪30");
-  assert.match(price, /170/, "regular price still shown");
+  assert.match(price, /139/, "₪169 − ₪30");
+  assert.match(price, /169/, "regular price still shown");
   assert.match((await page.locator(".product-panel").textContent()) ?? "", /Owner special/);
 }
 
@@ -439,10 +441,10 @@ export async function admin_can_remove_a_sale_and_restore_the_regular_price({ pa
     ([key]) => JSON.parse(window.localStorage.getItem(key)).products.find((p) => p.slug === "royal-1998").basePriceIls,
     [LS_KEY],
   );
-  assert.equal(base, 170, "the regular price was never lost");
+  assert.equal(base, 169, "the regular price was never lost");
 
   await page.goto(`${BASE}/en/product/royal-1998`, { waitUntil: "networkidle" });
-  assert.match(await totalText(page), /170/, "and it is charged again immediately");
+  assert.match(await totalText(page), /169/, "and it is charged again immediately");
   assert.equal(await page.locator(".product-price .price__compare").count(), 0);
 }
 

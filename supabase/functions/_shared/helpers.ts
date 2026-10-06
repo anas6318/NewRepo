@@ -74,6 +74,19 @@ export async function dbUpdate(path: string, patch: unknown): Promise<void> {
   if (!res.ok) throw new Error(`db update failed: ${res.status} ${await res.text()}`);
 }
 
+/**
+ * Calls a Postgres function via PostgREST (`/rest/v1/rpc/<fn>`) with the
+ * service role and returns its JSON result (null for an empty body).
+ * Used for `patch_order_data` (migration 0007): one atomic server-side jsonb
+ * merge instead of a whole-`data` read-modify-write (A2-B6).
+ */
+export async function dbRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  const res = await db(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args) });
+  if (!res.ok) throw new Error(`db rpc ${fn} failed: ${res.status} ${await res.text()}`);
+  const text = await res.text();
+  return (text ? JSON.parse(text) : null) as T;
+}
+
 /** Resolves the calling user's profile from their JWT (or null for anon). */
 export async function callerProfile(req: Request): Promise<{ id: string; email: string; role: string } | null> {
   const auth = req.headers.get("authorization") ?? "";

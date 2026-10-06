@@ -564,6 +564,12 @@ export interface Order {
    * Internal — stripped from every customer-facing response. Absent on
    * orders placed before the feature existed. */
   customerEmails?: CustomerEmailLog;
+  /**
+   * Checkout idempotency bookkeeping (owner/internal — never returned to the
+   * customer; `toCustomerOrder` drops it). See
+   * supabase/functions/_shared/order-idempotency.ts.
+   */
+  idempotency?: { key: string; requestHash: string };
   isDemo: boolean;
 }
 
@@ -572,6 +578,8 @@ export interface Order {
  * an email, and it gets exactly one. */
 export type CustomerEmailEvent =
   | "order_received"
+  /** Supplier confirmed a held, unpaid order (payment is requested now). */
+  | "supplier_confirmed"
   | "payment_confirmed"
   | "processing"
   | "shipped"

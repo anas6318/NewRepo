@@ -17,6 +17,14 @@
 import type { PriceSnapshot, ResolvedSale } from "../services/types.ts";
 import { discountableAmount, saleLabelIn, type Locale } from "./sales.ts";
 
+/** Per-line quantity cap, enforced identically on the client (stepper, cart
+ * "+", `updateQty`, `priceLine`) and in order creation (demo + server, A2).
+ * A1-B2. */
+export const MAX_LINE_QUANTITY = 10;
+
+/** Per-order line-count cap, enforced in order creation (demo + server). */
+export const MAX_ORDER_LINES = 30;
+
 export interface PricedOptions {
   /** The product's real regular price. A sale never overwrites this. */
   basePriceIls: number;
@@ -60,6 +68,9 @@ export function priceLine({
   if (!Number.isFinite(badgePriceIls) || badgePriceIls < 0) throw new PricingError("badgePriceIls must not be negative");
   if (!Number.isInteger(quantity) || quantity < 1) {
     throw new PricingError("quantity must be a positive integer");
+  }
+  if (quantity > MAX_LINE_QUANTITY) {
+    throw new PricingError(`quantity must not exceed ${MAX_LINE_QUANTITY}`);
   }
 
   const options = adjustmentsIls.reduce((sum, a) => sum + a, 0);

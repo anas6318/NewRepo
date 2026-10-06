@@ -4,6 +4,8 @@
  * access, and the spec allows "an equivalent schema-validation library".
  * Unit-tested in tests/unit/schema.test.ts.
  */
+import type { CartLine, LocalizedText } from "../services/types.ts";
+import { MAX_LINE_QUANTITY } from "./pricing.ts";
 
 export interface Issue {
   path: string;
@@ -250,3 +252,113 @@ export const s = {
 };
 
 export type InferSchema<X> = X extends Schema<infer T> ? T : never;
+
+/* ── Cart line validation (A1-B4) ──────────────────────────────────────────
+ * A small, dependency-free structural validator for one persisted
+ * `crowned_cart_v1` line, kept in this plain-.ts module (rather than
+ * store.tsx) specifically so it is unit-testable directly. The `_v1` key
+ * suffix implies a versioning story with no actual migration code behind
+ * it — a malformed entry, or a row saved before a `CartLine` shape change,
+ * must never flow straight into `cartSubtotal()` / `<Price>`, which can
+ * render `₪NaN`, so anything failing this shape check is dropped rather
+ * than trusted. */
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+function isLocalizedText(v: unknown): v is LocalizedText {
+  return isRecord(v) && typeof v.ar === "string" && typeof v.he === "string" && typeof v.en === "string";
+}
+
+const PRICE_SNAPSHOT_NUMBER_KEYS = [
+  "regularBasePriceIls",
+  "versionAdjustmentIls",
+  "optionAdjustmentsIls",
+  "badgeAdjustmentIls",
+  "regularUnitPriceIls",
+  "saleDiscountIls",
+  "finalUnitPriceIls",
+] as const;
+
+function isValidPriceSnapshot(v: unknown): boolean {
+  if (v === undefined) return true;
+  if (!isRecord(v)) return false;
+  return PRICE_SNAPSHOT_NUMBER_KEYS.every((k) => typeof v[k] === "number" && Number.isFinite(v[k] as number));
+}
+
+function isValidBadgeSnapshot(v: unknown): boolean {
+  if (v === undefined) return true;
+  if (!isRecord(v)) return false;
+  return (
+    typeof v.badgeId === "string" &&
+    typeof v.code === "string" &&
+    isLocalizedText(v.name) &&
+    typeof v.label === "string" &&
+    typeof v.priceIls === "number" &&
+    Number.isFinite(v.priceIls as number)
+  );
+}
+
+/**
+ * Structural shape check for one persisted cart line. Quantity is checked
+ * only for being a finite number here — out-of-range values are clamped by
+ * {@link clampQuantity}, not rejected, so a stepper bug or a hand-edited
+ * value beyond 1..{@link MAX_LINE_QUANTITY} repairs itself instead of
+ * dropping an otherwise-valid line.
+ */
+export function hasValidCartLineShape(v: unknown): v is CartLine {
+  if (!isRecord(v)) return false;
+  if (typeof v.key !== "string" || !v.key) return false;
+  if (typeof v.productId !== "string" || !v.productId) return false;
+  if (typeof v.slug !== "string") return false;
+  if (!isLocalizedText(v.title)) return false;
+  if (typeof v.image !== "string") return false;
+  if (typeof v.size !== "string" || !v.size) return false;
+  if (typeof v.quantity !== "number" || !Number.isFinite(v.quantity)) return false;
+  if (typeof v.unitPriceIls !== "number" || !Number.isFinite(v.unitPriceIls) || v.unitPriceIls < 0) return false;
+  if (typeof v.qualifiesForFreeDelivery !== "boolean") return false;
+  if (typeof v.isDemo !== "boolean") return false;
+  if (!isValidPriceSnapshot(v.price)) return false;
+  if (!isValidBadgeSnapshot(v.badge)) return false;
+  return true;
+}
+
+/** Clamps a quantity into the shared 1..{@link MAX_LINE_QUANTITY} range
+ * (A1-B2/A1-B3). Used everywhere a quantity is written into the cart. */
+export function clampQuantity(quantity: number): number {
+  return Math.min(Math.max(Math.round(quantity), 1), MAX_LINE_QUANTITY);
+}
+
+/**
+ * A1-B1: computes the line to store when re-adding an identical
+ * configuration (same line key). Quantity is additive (and capped);
+ * everything else — price snapshot, `unitPriceIls`, badge,
+ * `qualifiesForFreeDelivery` — is REFRESHED from the incoming `line` rather
+ * than kept from the stale `existing` one, so a sale/price change between
+ * the two adds is reflected instead of discarded.
+ */
+export function mergeCartLine(existing: CartLine, incoming: Omit<CartLine, "key">): CartLine {
+  return { ...existing, ...incoming, key: existing.key, quantity: clampQuantity(existing.quantity + incoming.quantity) };
+}
+
+/** Validates and repairs cart lines loaded from storage (A1-B4): anything
+ * that isn't an array is treated as empty, and any entry with the wrong
+ * shape is dropped (with a single console warning) rather than trusted.
+ * Surviving lines have their quantity clamped into range. */
+export function sanitizeCartLines(raw: unknown): CartLine[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CartLine[] = [];
+  let dropped = 0;
+  for (const item of raw) {
+    if (!hasValidCartLineShape(item)) {
+      dropped++;
+      continue;
+    }
+    out.push({ ...item, quantity: clampQuantity(item.quantity) });
+  }
+  if (dropped > 0) {
+    console.warn(`[crowned] dropped ${dropped} malformed cart line(s) from storage`);
+  }
+  return out;
+}

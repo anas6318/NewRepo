@@ -18,6 +18,27 @@ const T = {
     en: "You can track your order any time on the Track Order page using your order number and your email or phone.",
   },
   bankHeading: { ar: "تعليمات التحويل البنكي", he: "הוראות העברה בנקאית", en: "Bank transfer instructions" },
+  /* Held for a supplier check (A2-B5): no stock claim, no payment request. */
+  heldSubject: {
+    ar: "CROWNED — تم استلام طلبك (بانتظار تأكيد المورّد)",
+    he: "CROWNED — הזמנתך התקבלה (ממתינה לאישור הספק)",
+    en: "CROWNED — order received, awaiting supplier confirmation",
+  },
+  heldBody: {
+    ar: "استلمنا طلبك. قبل أي إنتاج نتأكد من توفّر اختيارك لدى المورّد. لا حاجة للدفع الآن — سنراسلك فور التأكيد مع طريقة إتمام الدفع.",
+    he: "קיבלנו את ההזמנה. לפני כל ייצור אנחנו מוודאים מול הספק שהבחירה שלך זמינה. אין צורך לשלם עדיין — נשלח לך מייל ברגע שהזמינות תאושר, עם הוראות להשלמת התשלום.",
+    en: "We have received your order. Before anything is produced we confirm that your selection is available from our supplier. No payment is needed yet — we will email you as soon as it is confirmed, with how to complete payment.",
+  },
+  supplierConfirmedSubject: {
+    ar: "CROWNED — تم تأكيد توفّر طلبك",
+    he: "CROWNED — הזמינות של ההזמנה אושרה",
+    en: "CROWNED — your order's availability is confirmed",
+  },
+  supplierConfirmedBody: {
+    ar: "أخبار سارّة: تم تأكيد توفّر طلبك لدى المورّد. سيبدأ تجهيز طلبك فور تأكيد الدفع.",
+    he: "חדשות טובות: הספק אישר את זמינות ההזמנה. ההזמנה תיכנס להכנה ברגע שהתשלום יאושר.",
+    en: "Good news: the supplier has confirmed availability for your order. It moves to preparation as soon as your payment is confirmed.",
+  },
   paidSubject: { ar: "CROWNED — تم تأكيد الدفع", he: "CROWNED — התשלום אושר", en: "CROWNED — payment confirmed" },
   paidBody: {
     ar: "تم تأكيد دفعتك وسيبدأ تجهيز طلبك الآن.",
@@ -84,7 +105,11 @@ function shell(locale: Locale, heading: string, rows: string[]): string {
   </div></body></html>`;
 }
 
-export function orderConfirmationEmail(locale: Locale, args: { orderNumber: string; totalIls: number; bankInstructions?: string }): { subject: string; html: string } {
+export function orderConfirmationEmail(
+  locale: Locale,
+  args: { orderNumber: string; totalIls: number; bankInstructions?: string; awaitingSupplier?: boolean },
+): { subject: string; html: string } {
+  if (args.awaitingSupplier) return heldOrderEmail(locale, args);
   const rows = [
     `${T.orderNo[locale]}: <strong style="color:#c6a355">${args.orderNumber}</strong>`,
     `${T.total[locale]}: <strong>₪${args.totalIls}</strong>`,
@@ -94,6 +119,36 @@ export function orderConfirmationEmail(locale: Locale, args: { orderNumber: stri
     rows.push(`<strong>${T.bankHeading[locale]}</strong><br/>${args.bankInstructions.replaceAll("\n", "<br/>")}`);
   }
   return { subject: T.confirmSubject[locale], html: shell(locale, T.confirmHeading[locale], rows) };
+}
+
+/**
+ * "Order received" for an order HELD for a supplier check (A2-B5). It never
+ * carries bank-transfer instructions and never claims stock: the customer is
+ * asked to pay only after availability is confirmed ({@link supplierConfirmedEmail}).
+ */
+export function heldOrderEmail(locale: Locale, args: { orderNumber: string; totalIls: number }): { subject: string; html: string } {
+  const rows = [
+    `${T.orderNo[locale]}: <strong style="color:#c6a355">${esc(args.orderNumber)}</strong>`,
+    `${T.total[locale]}: <strong>₪${args.totalIls}</strong>`,
+    T.heldBody[locale],
+    T.trackHint[locale],
+  ];
+  return { subject: T.heldSubject[locale], html: shell(locale, T.heldSubject[locale], rows) };
+}
+
+/**
+ * Sent when the supplier confirms availability on an order that is not paid
+ * yet. Bank-transfer orders get their payment instructions HERE, not at
+ * checkout, because only now is there something to pay for.
+ */
+export function supplierConfirmedEmail(locale: Locale, args: StatusEmailArgs): { subject: string; html: string } {
+  const rows = [`${T.orderNo[locale]}: <strong style="color:#c6a355">${esc(args.orderNumber)}</strong>`];
+  if (typeof args.totalIls === "number") rows.push(`${T.total[locale]}: <strong>₪${args.totalIls}</strong>`);
+  rows.push(T.supplierConfirmedBody[locale]);
+  if (args.bankInstructions) {
+    rows.push(`<strong>${T.bankHeading[locale]}</strong><br/>${args.bankInstructions.replaceAll("\n", "<br/>")}`);
+  }
+  return { subject: T.supplierConfirmedSubject[locale], html: shell(locale, T.supplierConfirmedSubject[locale], withTrackLink(locale, rows, args)) };
 }
 
 export function paymentConfirmedEmail(locale: Locale, orderNumber: string): { subject: string; html: string } {
@@ -137,6 +192,8 @@ export function abandonedCartEmail(locale: Locale): { subject: string; html: str
 
 export type CustomerEmailEvent =
   | "order_received"
+  /** Supplier confirmed a held, unpaid order: "you can pay now". */
+  | "supplier_confirmed"
   | "payment_confirmed"
   | "processing"
   | "shipped"
@@ -149,6 +206,8 @@ export interface StatusEmailArgs {
   orderNumber: string;
   totalIls?: number;
   bankInstructions?: string;
+  /** The order is held for a supplier check: use the held variant, no bank instructions. */
+  awaitingSupplier?: boolean;
   trackingNumber?: string;
   trackingUrl?: string;
   /** Storefront base URL, used for the "track your order" link. */
@@ -177,8 +236,10 @@ export function statusUpdateEmail(locale: Locale, event: CustomerEmailEvent, arg
       return orderConfirmationEmail(locale, {
         orderNumber: args.orderNumber,
         totalIls: args.totalIls ?? 0,
-        ...(args.bankInstructions ? { bankInstructions: args.bankInstructions } : {}),
+        ...(args.awaitingSupplier ? { awaitingSupplier: true } : args.bankInstructions ? { bankInstructions: args.bankInstructions } : {}),
       });
+    case "supplier_confirmed":
+      return supplierConfirmedEmail(locale, args);
     case "payment_confirmed":
       return paymentConfirmedEmail(locale, args.orderNumber);
     case "shipped":

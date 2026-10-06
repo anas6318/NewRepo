@@ -9,7 +9,7 @@ import { usePageMeta, breadcrumbJsonLd, productJsonLd } from "../../lib/seo.tsx"
 import { dataService } from "../../services/index.ts";
 import { buildCartLine, useCart, useSettings, useToast, useWishlist } from "../../services/store.tsx";
 import { track } from "../../lib/analytics.ts";
-import { priceLine, priceSnapshot } from "../../lib/pricing.ts";
+import { MAX_LINE_QUANTITY, priceLine, priceSnapshot } from "../../lib/pricing.ts";
 import { discountableAmount, isDiscounting, priceValidUntil, resolveSale } from "../../lib/sales.ts";
 import { activePromotion, isEligibleProduct } from "../../lib/promotions.ts";
 import { whatsappLink } from "../../lib/whatsapp.ts";
@@ -474,7 +474,12 @@ export function ProductPage({ slug }: { slug: string }) {
                 <IconMinus size={15} />
               </button>
               <span aria-live="polite">{quantity}</span>
-              <button type="button" aria-label="+" onClick={() => setQuantity((q) => Math.min(10, q + 1))}>
+              <button
+                type="button"
+                aria-label="+"
+                disabled={quantity >= MAX_LINE_QUANTITY}
+                onClick={() => setQuantity((q) => Math.min(MAX_LINE_QUANTITY, q + 1))}
+              >
                 <IconPlus size={15} />
               </button>
             </div>

@@ -43,6 +43,12 @@ export interface PlaceOrderInput {
     quantity: number;
   }[];
   marketingConsent?: boolean;
+  /**
+   * UUID v4, generated once per checkout attempt and reused for every retry
+   * or double submit of that attempt. The same attempt can then create at
+   * most one order; omitted → legacy behaviour.
+   */
+  idempotencyKey?: string;
 }
 
 export interface PlaceOrderResult {
@@ -52,6 +58,9 @@ export interface PlaceOrderResult {
   trackingContact?: string;
   error?: string;
   order?: Order;
+  /** True when this is the order an earlier request with the same
+   * idempotency key already created (a replay) — treat exactly as success. */
+  duplicate?: boolean;
 }
 
 export interface SessionInfo {
@@ -126,7 +135,7 @@ export interface DataService {
       /** Supplier-availability decision for orders held before production. */
       supplierConfirmation: NonNullable<Order["supplierConfirmation"]>;
     }>,
-  ): Promise<{ ok: boolean; order?: Order }>;
+  ): Promise<{ ok: boolean; order?: Order; /** Stable server code when refused (e.g. invalid_transition). */ error?: string; detail?: string }>;
   adminResyncOrder(orderNumber: string): Promise<{ ok: boolean; message: string }>;
   /** Retry one customer status email that did not reach the customer.
    * A milestone already delivered is never re-sent. */

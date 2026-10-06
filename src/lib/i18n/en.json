@@ -226,6 +226,8 @@
     "selectZoneShort": "Select area",
     "simulatedDemo": "Simulated (demo)",
     "zone": "Delivery area",
+    "error_idempotency_conflict": "Your order details changed while it was being placed. Please review your cart and details, then place the order again.",
+    "error_invalid_idempotency_key": "Something went wrong placing the order. Please refresh the page and try again.",
     "error_generic": "Something went wrong placing the order. Please try again.",
     "error_payment_method_unavailable": "This payment method is not available.",
     "error_zone_unavailable": "The selected delivery area is not available.",
@@ -235,11 +237,14 @@
     "error_invalid_version": "A selected version is not available.",
     "error_invalid_sleeve": "A selected sleeve option is not available.",
     "error_invalid_quantity": "Invalid quantity.",
+    "error_too_many_lines": "Your cart has too many items to place in one order.",
     "error_personalization_unavailable": "Personalization is not available for a product in your cart.",
     "error_invalid_personalization": "Invalid name or number.",
     "error_invalid_badge": "A selected badge option is not available.",
     "bankTransferAfterConfirmation": "Payment details after availability is confirmed",
-    "bankTransferHeldBody": "We'll check availability with the supplier first. As soon as it's confirmed we'll send you the bank transfer details — nothing is due until then, and nothing is charged automatically."
+    "bankTransferHeldBody": "We'll check availability with the supplier first. As soon as it's confirmed we'll send you the bank transfer details — nothing is due until then, and nothing is charged automatically.",
+    "staleLineWarning": "This item has changed since you added it and can no longer be ordered as configured.",
+    "staleLineBlocksSubmit": "Remove the flagged item(s) below before placing your order."
   },
   "confirmation": {
     "title": "Order received",
